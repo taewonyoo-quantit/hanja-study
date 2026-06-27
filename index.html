@@ -66,13 +66,13 @@
     padding: calc(12px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right)) calc(14px + env(safe-area-inset-bottom)) calc(16px + env(safe-area-inset-left));
     will-change: transform; touch-action: pan-y;
   }
-  .topbar { display: flex; align-items: center; gap: 10px; }
-  .progress { font-size: 13px; color: #888; }
+  .topbar { display: flex; align-items: center; gap: 8px; }
+  .progress { font-size: 12px; color: #888; margin-right: auto; }
   .progress b { color: #2563eb; }
   .roundtag { font-size: 12px; background:#eef2ff; color:#4f46e5; border-radius:999px; padding:3px 10px; font-weight:700; }
   .help {
-    margin-left: auto; border: 1.5px solid #2563eb; color: #2563eb; background: #fff;
-    border-radius: 999px; padding: 8px 14px; font-size: 14px; font-weight: 700; cursor: pointer;
+    border: 1.5px solid #2563eb; color: #2563eb; background: #fff;
+    border-radius: 999px; padding: 7px 13px; font-size: 13px; font-weight: 700; cursor: pointer; white-space: nowrap;
   }
   .help.on { background: #2563eb; color: #fff; }
   .prompt-wrap { text-align: center; padding: 10px 0 4px; }
@@ -87,12 +87,22 @@
     linear-gradient(to right, transparent calc(50% - 0.5px), #eef2f6 calc(50% - 0.5px), #eef2f6 calc(50% + 0.5px), transparent calc(50% + 0.5px)),
     linear-gradient(to bottom, transparent calc(50% - 0.5px), #eef2f6 calc(50% - 0.5px), #eef2f6 calc(50% + 0.5px), transparent calc(50% + 0.5px)); }
   canvas { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; }
-  .hzView {
+  .answerOverlay {
     position: absolute; inset: 0; display: none; align-items: center; justify-content: center;
-    background: rgba(255,255,255,.97); border-radius: 16px; z-index: 3;
+    font-size: 190px; color: rgba(37,99,235,.15); pointer-events: none; z-index: 2;
   }
+  .answerOverlay.show { display: flex; }
+  .hzView {
+    position: absolute; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center;
+    gap: 8px; background: rgba(255,255,255,.98); border-radius: 16px; z-index: 4; padding: 10px;
+  }
+  .hzCount { font-size: 15px; font-weight: 800; color: #2563eb; }
+  .hzStage { flex: 1; width: 100%; display: flex; align-items: center; justify-content: center; min-height: 0; }
+  .hzCtrls { display: flex; gap: 10px; }
+  .hzCtrls button { border: none; border-radius: 10px; padding: 9px 18px; font-size: 14px; font-weight: 700; cursor: pointer; }
+  #hzReplay { background: #eef2ff; color: #2563eb; }
+  #hzClose { background: #f1f5f9; color: #64748b; }
   .hzFail { color: #999; font-size: 15px; text-align: center; padding: 20px; line-height: 1.6; }
-  .hzView svg path { /* hanzi-writer 외곽선/획 */ }
   .clearBtn {
     position: absolute; right: 10px; bottom: 10px; border: none; background: #f1f5f9; color: #475569;
     border-radius: 10px; padding: 8px 12px; font-size: 13px; cursor: pointer; z-index: 2;
@@ -116,6 +126,8 @@
   .know { background: #dcfce7; color: #15803d; }
   .dontknow { background: #fee2e2; color: #b91c1c; }
   .swipehint { text-align: center; font-size: 12px; color: #bbb; margin-top: 8px; }
+  .pauseBtn { align-self: center; margin-top: 10px; border: 1px solid #e5e7eb; background: #fff; color: #94a3b8;
+    border-radius: 999px; padding: 8px 18px; font-size: 13px; cursor: pointer; }
 
   /* ===== 완료 화면 ===== */
   #done { flex: 1; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 18px; padding: 30px; text-align: center; }
@@ -290,7 +302,9 @@ function renderCard(){
     <div class="topbar">
       <span class="roundtag">라운드 ${state.round}</span>
       <span class="progress"><b>${state.idx+1}</b> / ${state.queue.length} · 모름 ${state.unknown.length}</span>
-      <button class="help" id="helpBtn">${helpLabel}</button>
+      ${isWrite
+        ? `<button class="help" id="peekBtn">한자</button><button class="help" id="strokeBtn">획순</button>`
+        : `<button class="help" id="helpBtn">한글 확인</button>`}
     </div>
     <div class="prompt-wrap">
       <div class="prompt-label">${isWrite ? '다음 뜻·음의 한자를 쓰세요' : '다음 한자의 음을 쓰세요'}</div>
@@ -303,49 +317,72 @@ function renderCard(){
       <button class="dontknow">✕ 몰라요</button>
     </div>
     <div class="swipehint">알면 「알아요」, 모르면 「몰라요」를 누르세요</div>
+    <button class="pauseBtn" id="pauseBtn">⏸ 잠깐 중단하기</button>
   `;
   study.appendChild(el);
 
   const work = el.querySelector('#work');
   const hintbox = el.querySelector('#hintbox');
-  const helpBtn = el.querySelector('#helpBtn');
 
   if (isWrite){
     work.innerHTML = `
       <div class="padwrap">
         <canvas id="pad"></canvas>
-        <div class="hzView" id="hzView"></div>
+        <div class="answerOverlay serif" id="ansOv">${card.h}</div>
+        <div class="hzView" id="hzView">
+          <div class="hzCount" id="hzCount"></div>
+          <div class="hzStage" id="hzStage"></div>
+          <div class="hzCtrls">
+            <button id="hzReplay">↻ 다시 보기</button>
+            <button id="hzClose">닫기</button>
+          </div>
+        </div>
         <button class="clearBtn" id="clearBtn">↺ 지우기</button>
       </div>`;
     const padEl = el.querySelector('#pad');
     requestAnimationFrame(()=> setupCanvas(padEl));   // 레이아웃 확정 후 캔버스 크기 계산
     el.querySelector('#clearBtn').onclick = ()=> clearCanvas();
-    const hz = el.querySelector('#hzView');
-    helpBtn.onclick = ()=>{
-      if (hz.style.display === 'flex'){   // 닫기
-        hz.style.display='none'; hz.innerHTML=''; helpBtn.classList.remove('on'); return;
-      }
-      hz.style.display='flex'; hz.innerHTML=''; helpBtn.classList.add('on');
-      if (!window.HanziWriter){ hz.innerHTML = '<div class="hzFail">획순 데이터를 불러오지 못했어요.<br>인터넷 연결을 확인해 주세요.</div>'; return; }
+
+    // 「한자」 — 옅은 글자 오버레이(따라쓰기 가이드)
+    const ansOv = el.querySelector('#ansOv');
+    const peekBtn = el.querySelector('#peekBtn');
+    peekBtn.onclick = ()=>{ ansOv.classList.toggle('show'); peekBtn.classList.toggle('on'); };
+
+    // 「획순」 — 1회 재생 + 총 획수 + 다시 보기
+    const hzView = el.querySelector('#hzView');
+    const hzStage = el.querySelector('#hzStage');
+    const hzCount = el.querySelector('#hzCount');
+    const strokeBtn = el.querySelector('#strokeBtn');
+    const hzChar = ({'卽':'即','淸':'清'})[card.h] || card.h;  // 이체자 → 표준 자형
+    let writer = null;
+    function openStroke(){
+      hzView.style.display='flex'; strokeBtn.classList.add('on');
+      hzStage.innerHTML=''; hzCount.textContent=''; writer=null;
+      if (!window.HanziWriter){ hzStage.innerHTML = '<div class="hzFail">획순 데이터를 불러오지 못했어요.<br>인터넷 연결을 확인해 주세요.</div>'; return; }
+      HanziWriter.loadCharacterData(hzChar).then(d=>{ if (d && d.strokes) hzCount.textContent = '총 ' + d.strokes.length + '획'; }).catch(()=>{});
       requestAnimationFrame(()=>{
-        const r = hz.getBoundingClientRect();
-        const sz = Math.max(120, Math.min(r.width, r.height) - 16);
-        const hzChar = ({'卽':'即','淸':'清'})[card.h] || card.h;  // 이체자 → 표준 자형(획순 데이터)
-        const writer = HanziWriter.create(hz, hzChar, {
+        const r = hzStage.getBoundingClientRect();
+        const sz = Math.max(120, Math.min(r.width, r.height) - 8);
+        writer = HanziWriter.create(hzStage, hzChar, {
           width: sz, height: sz, padding: 6,
           showOutline: true, strokeColor: '#1f2937', outlineColor: '#dbe2ea',
-          strokeAnimationSpeed: 1, delayBetweenStrokes: 320, delayBetweenLoops: 1600,
-          onLoadCharDataError: ()=>{ hz.innerHTML = '<div class="hzFail">「'+card.h+'」 획순 데이터가 없어요.<br>아래 캔버스에 직접 써 보세요.</div>'; }
+          strokeAnimationSpeed: 1, delayBetweenStrokes: 320,
+          onLoadCharDataError: ()=>{ hzStage.innerHTML = '<div class="hzFail">「'+card.h+'」 획순 데이터가 없어요.<br>아래 캔버스에 직접 써 보세요.</div>'; }
         });
-        writer.loopCharacterAnimation();
+        writer.animateCharacter();
       });
-    };
+    }
+    function closeStroke(){ hzView.style.display='none'; hzStage.innerHTML=''; hzCount.textContent=''; writer=null; strokeBtn.classList.remove('on'); }
+    strokeBtn.onclick = ()=>{ hzView.style.display==='flex' ? closeStroke() : openStroke(); };
+    el.querySelector('#hzReplay').onclick = ()=>{ if (writer) writer.animateCharacter(); };
+    el.querySelector('#hzClose').onclick = closeStroke;
   } else {
     work.innerHTML = `
       <div class="inputArea">
         <input class="eumInput" id="eumIn" type="text" inputmode="text" lang="ko"
                autocomplete="off" autocorrect="off" autocapitalize="off" placeholder="여기에 음을 써 보세요">
       </div>`;
+    const helpBtn = el.querySelector('#helpBtn');
     helpBtn.onclick = ()=>{
       if (hintbox.innerHTML){ hintbox.innerHTML=''; helpBtn.classList.remove('on'); }
       else { hintbox.innerHTML = `정답: ${card.e} <span class="hun">(${card.hun})</span>`; helpBtn.classList.add('on'); }
@@ -354,6 +391,12 @@ function renderCard(){
 
   el.querySelector('.know').onclick = ()=> flyOut(el, true);
   el.querySelector('.dontknow').onclick = ()=> flyOut(el, false);
+  el.querySelector('#pauseBtn').onclick = ()=>{
+    saveProgress();
+    study.style.display='none';
+    document.getElementById('start').style.display='flex';
+    renderStart();
+  };
 }
 
 /* ===================== 캔버스 손글씨 ===================== */
