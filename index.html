@@ -21,6 +21,7 @@
     display: flex; flex-direction: column;
     -webkit-user-select: none; user-select: none;
     -webkit-text-size-adjust: 100%;
+    touch-action: manipulation;   /* 더블탭 줌 방지 */
   }
   .serif { font-family: "AppleMyungjo", "Nanum Myeongjo", "Batang", serif; }
 
@@ -513,6 +514,19 @@ function renderStart(){
 document.getElementById('clearHistBtn').onclick = ()=>{
   if (confirm('학습 기록을 모두 지울까요?')){ saveHistory([]); renderStart(); }
 };
+
+/* ===================== iOS 줌 방지 ===================== */
+// 핀치(두 손가락) 줌 차단 — iOS Safari 전용 gesture 이벤트
+['gesturestart','gesturechange','gestureend'].forEach(ev =>
+  document.addEventListener(ev, e => e.preventDefault(), { passive:false }));
+// 더블탭 줌 차단 (touch-action:manipulation 보강 — 빠른 두 번 탭)
+let __lastTouchEnd = 0;
+document.addEventListener('touchend', e => {
+  const now = Date.now();
+  if (now - __lastTouchEnd <= 300) e.preventDefault();
+  __lastTouchEnd = now;
+}, { passive:false });
+
 renderStart();
 </script>
 </body>
