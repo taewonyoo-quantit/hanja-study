@@ -110,9 +110,11 @@
   }
   /* 모드2 입력 */
   .inputArea { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 14px; padding-top: 8px; }
+  input, textarea, select { font-size: 16px; }   /* iOS 포커스 줌 방지: 16px 이상 */
   .eumInput {
     width: 100%; max-width: 340px; text-align: center; font-size: 30px; font-weight: 700;
     border: none; border-bottom: 3px solid #cbd5e1; padding: 10px; outline: none; background: transparent;
+    touch-action: manipulation;
   }
   .eumInput:focus { border-color: #2563eb; }
   .checkBtn { border: none; background: #eef2ff; color: #2563eb; font-weight: 700; border-radius: 12px; padding: 12px 22px; font-size: 16px; cursor: pointer; }
@@ -526,6 +528,15 @@ document.addEventListener('touchend', e => {
   if (now - __lastTouchEnd <= 300) e.preventDefault();
   __lastTouchEnd = now;
 }, { passive:false });
+// 입력창 포커스 시 줌 잠금 재확정 (iOS가 maximum-scale을 무시하고 확대하는 경우 방지)
+const __vp = document.querySelector('meta[name="viewport"]');
+const __VP_LOCK = 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover';
+document.addEventListener('focusin', e => {
+  if (e.target.matches && e.target.matches('input,textarea,select')) __vp.setAttribute('content', __VP_LOCK);
+});
+document.addEventListener('focusout', e => {
+  if (e.target.matches && e.target.matches('input,textarea,select')) __vp.setAttribute('content', __VP_LOCK);
+});
 
 renderStart();
 </script>
