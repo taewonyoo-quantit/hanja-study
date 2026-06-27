@@ -479,19 +479,22 @@ function loadHistory(){ try { return JSON.parse(localStorage.getItem(LS_HIST)) |
 function saveHistory(h){ try { localStorage.setItem(LS_HIST, JSON.stringify(h.slice(0,30))); } catch(e){} }
 function addHistory(rec){ const h = loadHistory(); h.unshift(rec); saveHistory(h); }
 function loadProgress(){ try { return JSON.parse(localStorage.getItem(LS_PROG)); } catch(e){ return null; } }
-function saveProgress(){ try { localStorage.setItem(LS_PROG, JSON.stringify({ state })); } catch(e){} }
+function saveProgress(){ try { localStorage.setItem(LS_PROG, JSON.stringify({ state, savedAt: Date.now() })); } catch(e){} }
 function clearProgress(){ try { localStorage.removeItem(LS_PROG); } catch(e){} }
 function fmtDate(d){ const p = n => String(n).padStart(2,'0');
   return `${d.getFullYear()}.${p(d.getMonth()+1)}.${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`; }
 function fmtDur(s){ const m = Math.floor(s/60), ss = s%60; return m ? `${m}분 ${ss}초` : `${ss}초`; }
+function fmtShort(d){ const p = n => String(n).padStart(2,'0');
+  return `${d.getMonth()+1}월 ${d.getDate()}일 ${p(d.getHours())}:${p(d.getMinutes())}`; }
 
 function renderStart(){
   const p = loadProgress();
   const rb = document.getElementById('resumeBtn');
   if (p && p.state && p.state.queue && p.state.idx < p.state.queue.length){
     const st = p.state, lbl = st.cfg.mode === 'write' ? '한자 쓰기' : '한글 읽기';
+    const when = p.savedAt ? `⏸ ${fmtShort(new Date(p.savedAt))} 중단` : '';
     rb.style.display = 'block';
-    rb.innerHTML = `⏵ 이어서 학습하기<small>${lbl} · 라운드 ${st.round} · ${st.idx}/${st.queue.length} 진행 중</small>`;
+    rb.innerHTML = `⏵ 이어서 학습하기<small>${lbl} · 라운드 ${st.round} · ${st.idx}/${st.queue.length} 진행 중<br>${when}</small>`;
   } else rb.style.display = 'none';
 
   const hist = loadHistory();
