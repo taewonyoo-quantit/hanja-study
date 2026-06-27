@@ -48,9 +48,10 @@
     background: #2563eb; color: #fff; cursor: pointer; box-shadow: 0 6px 16px rgba(37,99,235,.3);
   }
   #startBtn:active { transform: translateY(1px); }
-  #resumeBtn { border: none; border-radius: 14px; padding: 14px; font-size: 17px; font-weight: 800;
-    background: #dcfce7; color: #15803d; cursor: pointer; }
-  #resumeBtn small { display: block; font-weight: 500; color: #16a34a; font-size: 12px; margin-top: 3px; }
+  .resumeBtn { border: none; border-radius: 14px; padding: 14px; font-size: 16px; font-weight: 800; cursor: pointer; text-align: center; }
+  .resumeBtn small { display: block; font-weight: 500; font-size: 12px; margin-top: 3px; opacity: .9; }
+  #resumeWrite { background: #dcfce7; color: #15803d; }
+  #resumeRead { background: #dbeafe; color: #1d4ed8; }
   #historyList .hrec { border-bottom: 1px solid #f1f1f3; padding: 8px 2px; display: flex; flex-direction: column; gap: 2px; }
   #historyList .hrec:last-child { border-bottom: none; }
   #historyList .hd { color: #aaa; font-size: 12px; }
@@ -116,6 +117,12 @@
     border: none; border-bottom: 3px solid #cbd5e1; padding: 10px; outline: none; background: transparent;
     touch-action: manipulation;
   }
+  /* 모드2: 큰 한자 + 음·뜻 표시 */
+  .readArea { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; }
+  .bigHan { font-size: clamp(120px, 32vh, 280px); line-height: 1; color: #111; }
+  .reveal { min-height: 34px; text-align: center; display: flex; align-items: baseline; gap: 8px; justify-content: center; }
+  .reveal .big { font-size: 34px; font-weight: 800; color: #2563eb; }
+  .reveal .hun { font-size: 18px; color: #777; font-weight: 500; }
   .eumInput:focus { border-color: #2563eb; }
   .checkBtn { border: none; background: #eef2ff; color: #2563eb; font-weight: 700; border-radius: 12px; padding: 12px 22px; font-size: 16px; cursor: pointer; }
   .result { font-size: 17px; font-weight: 700; min-height: 24px; }
@@ -177,7 +184,8 @@
   </div>
 
   <div class="btnrow">
-    <button id="resumeBtn" style="display:none"></button>
+    <button class="resumeBtn" id="resumeWrite" style="display:none"></button>
+    <button class="resumeBtn" id="resumeRead" style="display:none"></button>
     <button id="startBtn">새로 시작하기</button>
   </div>
 </div>
@@ -283,15 +291,57 @@ document.getElementById('startBtn').onclick = ()=>{
     cfg: { mode: cfg.mode, order: cfg.order, sets: [...cfg.sets] } });
   saveProgress();
 };
-document.getElementById('resumeBtn').onclick = ()=>{
-  const p = loadProgress();
+function resumeMode(mode){
+  const p = loadProgress(mode);
   if (!p || !p.state){ renderStart(); return; }
   cfg.mode = p.state.cfg.mode; cfg.order = p.state.cfg.order; cfg.sets = new Set(p.state.cfg.sets);
   beginSession(p.state);
-};
+}
+document.getElementById('resumeWrite').onclick = ()=> resumeMode('write');
+document.getElementById('resumeRead').onclick = ()=> resumeMode('read');
 
 /* ===================== 카드 렌더 ===================== */
 const study = document.getElementById('study');
+
+const HZ_HTML = `
+  <div class="hzView" id="hzView">
+    <div class="hzCount" id="hzCount"></div>
+    <div class="hzStage" id="hzStage"></div>
+    <div class="hzCtrls">
+      <button id="hzReplay">↻ 다시 보기</button>
+      <button id="hzClose">닫기</button>
+    </div>
+  </div>`;
+function wireStroke(el, card){
+  const hzView = el.querySelector('#hzView');
+  const hzStage = el.querySelector('#hzStage');
+  const hzCount = el.querySelector('#hzCount');
+  const strokeBtn = el.querySelector('#strokeBtn');
+  if (!strokeBtn) return;
+  const hzChar = ({'卽':'即','淸':'清'})[card.h] || card.h;  // 이체자 → 표준 자형
+  let writer = null;
+  function open(){
+    hzView.style.display='flex'; strokeBtn.classList.add('on');
+    hzStage.innerHTML=''; hzCount.textContent=''; writer=null;
+    if (!window.HanziWriter){ hzStage.innerHTML='<div class="hzFail">획순 데이터를 불러오지 못했어요.<br>인터넷 연결을 확인해 주세요.</div>'; return; }
+    HanziWriter.loadCharacterData(hzChar).then(d=>{ if (d && d.strokes) hzCount.textContent='총 '+d.strokes.length+'획'; }).catch(()=>{});
+    requestAnimationFrame(()=>{
+      const r = hzStage.getBoundingClientRect();
+      const sz = Math.max(120, Math.min(r.width, r.height) - 8);
+      writer = HanziWriter.create(hzStage, hzChar, {
+        width: sz, height: sz, padding: 6,
+        showOutline: true, strokeColor: '#1f2937', outlineColor: '#dbe2ea',
+        strokeAnimationSpeed: 1, delayBetweenStrokes: 320,
+        onLoadCharDataError: ()=>{ hzStage.innerHTML='<div class="hzFail">「'+card.h+'」 획순 데이터가 없어요.</div>'; }
+      });
+      writer.animateCharacter();
+    });
+  }
+  function close(){ hzView.style.display='none'; hzStage.innerHTML=''; hzCount.textContent=''; writer=null; strokeBtn.classList.remove('on'); }
+  strokeBtn.onclick = ()=>{ hzView.style.display==='flex' ? close() : open(); };
+  el.querySelector('#hzReplay').onclick = ()=>{ if (writer) writer.animateCharacter(); };
+  el.querySelector('#hzClose').onclick = close;
+}
 function renderCard(){
   const card = state.queue[state.idx];
   study.innerHTML = '';
@@ -307,14 +357,13 @@ function renderCard(){
       <span class="progress"><b>${state.idx+1}</b> / ${state.queue.length} · 모름 ${state.unknown.length}</span>
       ${isWrite
         ? `<button class="help" id="peekBtn">한자</button><button class="help" id="strokeBtn">획순</button>`
-        : `<button class="help" id="helpBtn">한글 확인</button>`}
+        : `<button class="help" id="helpBtn">한글 확인</button><button class="help" id="strokeBtn">획순</button>`}
     </div>
     <div class="prompt-wrap">
-      <div class="prompt-label">${isWrite ? '다음 뜻·음의 한자를 쓰세요' : '다음 한자의 음을 쓰세요'}</div>
-      <div class="prompt ${isWrite?'hun':'han serif'}">${isWrite ? card.hun : card.h}</div>
+      <div class="prompt-label">${isWrite ? '다음 뜻·음의 한자를 쓰세요' : '다음 한자의 음과 뜻을 떠올려 보세요'}</div>
+      ${isWrite ? `<div class="prompt hun">${card.hun}</div>` : ``}
     </div>
     <div class="work" id="work"></div>
-    <div class="hintbox" id="hintbox"></div>
     <div class="actions">
       <button class="know">✓ 알아요</button>
       <button class="dontknow">✕ 몰라요</button>
@@ -325,71 +374,38 @@ function renderCard(){
   study.appendChild(el);
 
   const work = el.querySelector('#work');
-  const hintbox = el.querySelector('#hintbox');
 
   if (isWrite){
     work.innerHTML = `
       <div class="padwrap">
         <canvas id="pad"></canvas>
         <div class="answerOverlay serif" id="ansOv">${card.h}</div>
-        <div class="hzView" id="hzView">
-          <div class="hzCount" id="hzCount"></div>
-          <div class="hzStage" id="hzStage"></div>
-          <div class="hzCtrls">
-            <button id="hzReplay">↻ 다시 보기</button>
-            <button id="hzClose">닫기</button>
-          </div>
-        </div>
+        ${HZ_HTML}
         <button class="clearBtn" id="clearBtn">↺ 지우기</button>
       </div>`;
     const padEl = el.querySelector('#pad');
     requestAnimationFrame(()=> setupCanvas(padEl));   // 레이아웃 확정 후 캔버스 크기 계산
     el.querySelector('#clearBtn').onclick = ()=> clearCanvas();
-
     // 「한자」 — 옅은 글자 오버레이(따라쓰기 가이드)
     const ansOv = el.querySelector('#ansOv');
     const peekBtn = el.querySelector('#peekBtn');
     peekBtn.onclick = ()=>{ ansOv.classList.toggle('show'); peekBtn.classList.toggle('on'); };
-
-    // 「획순」 — 1회 재생 + 총 획수 + 다시 보기
-    const hzView = el.querySelector('#hzView');
-    const hzStage = el.querySelector('#hzStage');
-    const hzCount = el.querySelector('#hzCount');
-    const strokeBtn = el.querySelector('#strokeBtn');
-    const hzChar = ({'卽':'即','淸':'清'})[card.h] || card.h;  // 이체자 → 표준 자형
-    let writer = null;
-    function openStroke(){
-      hzView.style.display='flex'; strokeBtn.classList.add('on');
-      hzStage.innerHTML=''; hzCount.textContent=''; writer=null;
-      if (!window.HanziWriter){ hzStage.innerHTML = '<div class="hzFail">획순 데이터를 불러오지 못했어요.<br>인터넷 연결을 확인해 주세요.</div>'; return; }
-      HanziWriter.loadCharacterData(hzChar).then(d=>{ if (d && d.strokes) hzCount.textContent = '총 ' + d.strokes.length + '획'; }).catch(()=>{});
-      requestAnimationFrame(()=>{
-        const r = hzStage.getBoundingClientRect();
-        const sz = Math.max(120, Math.min(r.width, r.height) - 8);
-        writer = HanziWriter.create(hzStage, hzChar, {
-          width: sz, height: sz, padding: 6,
-          showOutline: true, strokeColor: '#1f2937', outlineColor: '#dbe2ea',
-          strokeAnimationSpeed: 1, delayBetweenStrokes: 320,
-          onLoadCharDataError: ()=>{ hzStage.innerHTML = '<div class="hzFail">「'+card.h+'」 획순 데이터가 없어요.<br>아래 캔버스에 직접 써 보세요.</div>'; }
-        });
-        writer.animateCharacter();
-      });
-    }
-    function closeStroke(){ hzView.style.display='none'; hzStage.innerHTML=''; hzCount.textContent=''; writer=null; strokeBtn.classList.remove('on'); }
-    strokeBtn.onclick = ()=>{ hzView.style.display==='flex' ? closeStroke() : openStroke(); };
-    el.querySelector('#hzReplay').onclick = ()=>{ if (writer) writer.animateCharacter(); };
-    el.querySelector('#hzClose').onclick = closeStroke;
+    wireStroke(el, card);
   } else {
     work.innerHTML = `
-      <div class="inputArea">
-        <input class="eumInput" id="eumIn" type="text" inputmode="text" lang="ko"
-               autocomplete="off" autocorrect="off" autocapitalize="off" placeholder="여기에 음을 써 보세요">
+      <div class="readArea">
+        <div class="bigHan serif">${card.h}</div>
+        <div class="reveal" id="reveal"></div>
+        ${HZ_HTML}
       </div>`;
+    // 「한글 확인」 — 음과 뜻을 모두 표시
+    const reveal = el.querySelector('#reveal');
     const helpBtn = el.querySelector('#helpBtn');
     helpBtn.onclick = ()=>{
-      if (hintbox.innerHTML){ hintbox.innerHTML=''; helpBtn.classList.remove('on'); }
-      else { hintbox.innerHTML = `정답: ${card.e} <span class="hun">(${card.hun})</span>`; helpBtn.classList.add('on'); }
+      if (reveal.innerHTML){ reveal.innerHTML=''; helpBtn.classList.remove('on'); }
+      else { reveal.innerHTML = `<span class="big">${card.e}</span><span class="hun">${card.hun}</span>`; helpBtn.classList.add('on'); }
     };
+    wireStroke(el, card);
   }
 
   el.querySelector('.know').onclick = ()=> flyOut(el, true);
@@ -460,7 +476,7 @@ function showDone(){
     durationSec
   };
   addHistory(rec);
-  clearProgress();
+  clearProgress(state.cfg.mode);
   study.style.display='none';
   const done = document.getElementById('done');
   done.style.display='flex';
@@ -477,13 +493,15 @@ document.getElementById('homeBtn').onclick = ()=>{
 };
 
 /* ===================== 로컬 스토리지 ===================== */
-const LS_HIST = 'hanja_history_v1', LS_PROG = 'hanja_progress_v1';
+const LS_HIST = 'hanja_history_v1';
+const LS_PROG = { write: 'hanja_progress_write_v1', read: 'hanja_progress_read_v1' };
+function progKey(mode){ return mode === 'write' ? LS_PROG.write : LS_PROG.read; }
 function loadHistory(){ try { return JSON.parse(localStorage.getItem(LS_HIST)) || []; } catch(e){ return []; } }
 function saveHistory(h){ try { localStorage.setItem(LS_HIST, JSON.stringify(h.slice(0,30))); } catch(e){} }
 function addHistory(rec){ const h = loadHistory(); h.unshift(rec); saveHistory(h); }
-function loadProgress(){ try { return JSON.parse(localStorage.getItem(LS_PROG)); } catch(e){ return null; } }
-function saveProgress(){ try { localStorage.setItem(LS_PROG, JSON.stringify({ state, savedAt: Date.now() })); } catch(e){} }
-function clearProgress(){ try { localStorage.removeItem(LS_PROG); } catch(e){} }
+function loadProgress(mode){ try { return JSON.parse(localStorage.getItem(progKey(mode))); } catch(e){ return null; } }
+function saveProgress(){ try { localStorage.setItem(progKey(state.cfg.mode), JSON.stringify({ state, savedAt: Date.now() })); } catch(e){} }
+function clearProgress(mode){ try { localStorage.removeItem(progKey(mode)); } catch(e){} }
 function fmtDate(d){ const p = n => String(n).padStart(2,'0');
   return `${d.getFullYear()}.${p(d.getMonth()+1)}.${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`; }
 function fmtDur(s){ const m = Math.floor(s/60), ss = s%60; return m ? `${m}분 ${ss}초` : `${ss}초`; }
@@ -491,14 +509,16 @@ function fmtShort(d){ const p = n => String(n).padStart(2,'0');
   return `${d.getMonth()+1}월 ${d.getDate()}일 ${p(d.getHours())}:${p(d.getMinutes())}`; }
 
 function renderStart(){
-  const p = loadProgress();
-  const rb = document.getElementById('resumeBtn');
-  if (p && p.state && p.state.queue && p.state.idx < p.state.queue.length){
-    const st = p.state, lbl = st.cfg.mode === 'write' ? '한자 쓰기' : '한글 읽기';
-    const when = p.savedAt ? `⏸ ${fmtShort(new Date(p.savedAt))} 중단` : '';
-    rb.style.display = 'block';
-    rb.innerHTML = `⏵ 이어서 학습하기<small>${lbl} · 라운드 ${st.round} · ${st.idx}/${st.queue.length} 진행 중<br>${when}</small>`;
-  } else rb.style.display = 'none';
+  [['write','resumeWrite','한자 쓰기'],['read','resumeRead','한글 읽기']].forEach(([mode,id,lbl])=>{
+    const p = loadProgress(mode);
+    const rb = document.getElementById(id);
+    if (p && p.state && p.state.queue && p.state.idx < p.state.queue.length){
+      const st = p.state;
+      const when = p.savedAt ? `⏸ ${fmtShort(new Date(p.savedAt))} 중단` : '';
+      rb.style.display = 'block';
+      rb.innerHTML = `⏵ ${lbl} 이어서 학습<small>라운드 ${st.round} · ${st.idx}/${st.queue.length} 진행 중<br>${when}</small>`;
+    } else rb.style.display = 'none';
+  });
 
   const hist = loadHistory();
   const hg = document.getElementById('historyGroup');
