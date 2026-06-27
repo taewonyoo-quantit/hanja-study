@@ -69,8 +69,8 @@
     will-change: transform; touch-action: pan-y;
     --accent: #2563eb; --accent-bg: #eef2ff;
   }
-  .card.mode-write { --accent: #15803d; --accent-bg: #dcfce7; }  /* 쓰기 = 초록 */
-  .card.mode-read  { --accent: #1d4ed8; --accent-bg: #dbeafe; }  /* 읽기 = 파랑 */
+  .mode-write { --accent: #15803d; --accent-bg: #dcfce7; }  /* 쓰기 = 초록 */
+  .mode-read  { --accent: #1d4ed8; --accent-bg: #dbeafe; }  /* 읽기 = 파랑 */
   .topbar { display: flex; align-items: center; gap: 8px; }
   .progress { font-size: 12px; color: #888; margin-right: auto; }
   .progress b { color: var(--accent,#2563eb); }
@@ -127,14 +127,20 @@
   .reveal { min-height: 34px; text-align: center; display: flex; align-items: baseline; gap: 8px; justify-content: center; }
   .reveal .big { font-size: 34px; font-weight: 800; color: var(--accent,#2563eb); }
   .reveal .hun { font-size: 18px; color: #777; font-weight: 500; }
-  /* 쓰임새(고사성어) */
-  .usage { margin-top: 4px; max-height: 24vh; overflow-y: auto; -webkit-overflow-scrolling: touch; }
-  .usage:empty { display: none; }
-  .uxhead { font-size: 12px; color: #999; font-weight: 700; margin: 2px 0; }
-  .ux { background: var(--accent-bg,#f1f5f9); border-radius: 10px; padding: 8px 11px; margin-top: 6px; font-size: 13px; line-height: 1.5; }
-  .ux b { font-family: "AppleMyungjo","Batang",serif; color: var(--accent,#2563eb); font-size: 15px; }
-  .uxr { color: #888; font-size: 12px; }
-  .uxm { color: #444; }
+  /* 쓰임새 모달 */
+  .modal { position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,.45); padding: 20px; }
+  .modalCard { background: #fff; border-radius: 16px; width: 100%; max-width: 440px; max-height: 78vh; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 12px 40px rgba(0,0,0,.3); }
+  .modalHead { display: flex; align-items: center; gap: 10px; padding: 14px 16px; border-bottom: 1px solid #eee; }
+  .modalHead .mh-han { font-family: "AppleMyungjo","Batang",serif; font-size: 28px; font-weight: 700; }
+  .modalHead .mh-eum { font-size: 15px; color: var(--accent,#2563eb); font-weight: 700; }
+  #modalClose { margin-left: auto; border: none; background: #f1f5f9; color: #475569; border-radius: 9px; width: 34px; height: 34px; font-size: 16px; cursor: pointer; }
+  #modalBody { padding: 14px 16px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  .ux { background: var(--accent-bg,#f1f5f9); border-radius: 10px; padding: 10px 12px; margin-bottom: 8px; font-size: 14px; line-height: 1.55; }
+  .ux:last-child { margin-bottom: 0; }
+  .ux b { font-family: "AppleMyungjo","Batang",serif; color: var(--accent,#2563eb); font-size: 17px; }
+  .uxr { color: #888; font-size: 13px; }
+  .uxm { color: #444; display: block; margin-top: 2px; }
+  .uxempty { color: #999; text-align: center; padding: 20px; }
   .eumInput:focus { border-color: #2563eb; }
   .checkBtn { border: none; background: #eef2ff; color: #2563eb; font-weight: 700; border-radius: 12px; padding: 12px 22px; font-size: 16px; cursor: pointer; }
   .result { font-size: 17px; font-weight: 700; min-height: 24px; }
@@ -215,6 +221,17 @@
   <button id="homeBtn">처음으로</button>
 </div>
 
+<!-- 쓰임새 모달 -->
+<div id="usageModal" class="modal" style="display:none">
+  <div class="modalCard" id="modalCard">
+    <div class="modalHead">
+      <span class="mh-han" id="modalHan"></span><span class="mh-eum" id="modalEum"></span>
+      <button id="modalClose">✕</button>
+    </div>
+    <div id="modalBody"></div>
+  </div>
+</div>
+
 <script>
 /* ===================== 데이터 ===================== */
 const DATA = [
@@ -284,15 +301,23 @@ IDIOMS.forEach(i=>{ const seen=new Set(); for(const ch of i.w){ if(seen.has(ch))
 function getUsage(card){
   const list = USAGE_MAP[card.h] || [];
   if (list.length){
-    return '<div class="uxhead">이 한자의 쓰임새</div>' + list.slice(0,3).map(i=>
-      `<div class="ux"><b>${i.w}</b> <span class="uxr">${i.r}</span><br><span class="uxm">${i.m}</span></div>`).join('');
+    return list.slice(0,4).map(i=>
+      `<div class="ux"><b>${i.w}</b> <span class="uxr">${i.r}</span><span class="uxm">${i.m}</span></div>`).join('');
   }
   if (card.s===5){
-    return '<div class="uxhead">이 한자의 쓰임새</div>' +
-      `<div class="ux"><b>${card.hun}</b><br><span class="uxm">십간(十干)·십이지(十二支) 간지(干支)에 쓰이는 글자</span></div>`;
+    return `<div class="ux"><b>${card.hun}</b><span class="uxm">십간(十干)·십이지(十二支) 간지(干支)에 쓰이는 글자</span></div>`;
   }
-  return '';
+  return '<div class="uxempty">아직 등록된 쓰임새가 없어요.</div>';
 }
+function openUsage(card){
+  const mc = document.getElementById('modalCard');
+  mc.className = 'modalCard ' + (cfg.mode === 'write' ? 'mode-write' : 'mode-read');
+  document.getElementById('modalHan').textContent = card.h;
+  document.getElementById('modalEum').textContent = card.hun;
+  document.getElementById('modalBody').innerHTML = getUsage(card);
+  document.getElementById('usageModal').style.display = 'flex';
+}
+function closeUsage(){ document.getElementById('usageModal').style.display = 'none'; }
 
 /* ===================== 옵션 선택 ===================== */
 const cfg = { mode:"write", order:"seq", sets:new Set([1,2,3,4,5,6]) };
@@ -405,11 +430,12 @@ function renderCard(){
       ${isWrite ? `<div class="prompt hun">${card.hun}</div>` : ``}
     </div>
     <div class="work" id="work"></div>
-    <div class="usage" id="usage"></div>
     <div class="helpRow">
       ${isWrite
-        ? `<button class="help" id="peekBtn">한자 보기</button><button class="help" id="strokeBtn">획순 보기</button>`
-        : `<button class="help" id="helpBtn">한글 확인</button><button class="help" id="strokeBtn">획순 보기</button>`}
+        ? `<button class="help" id="peekBtn">한자 보기</button>`
+        : `<button class="help" id="helpBtn">한글 확인</button>`}
+      <button class="help" id="strokeBtn">획순 보기</button>
+      <button class="help" id="usageBtn">쓰임새</button>
     </div>
     <div class="actions">
       <button class="know">✓ 알아요</button>
@@ -438,15 +464,14 @@ function renderCard(){
       ansOv.style.fontSize = Math.max(120, Math.min(pw.width, pw.height) - 16) + 'px';
     });
     el.querySelector('#clearBtn').onclick = ()=> clearCanvas();
-    // 「한자」 — 옅은 글자 오버레이(따라쓰기 가이드) + 쓰임새
-    const usage = el.querySelector('#usage');
+    // 「한자 보기」 — 옅은 글자 오버레이(따라쓰기 가이드)
     const peekBtn = el.querySelector('#peekBtn');
     peekBtn.onclick = ()=>{
       const on = peekBtn.classList.toggle('on');
       ansOv.classList.toggle('show', on);
-      usage.innerHTML = on ? getUsage(card) : '';
     };
     wireStroke(el, card);
+    el.querySelector('#usageBtn').onclick = ()=> openUsage(card);
   } else {
     work.innerHTML = `
       <div class="readArea">
@@ -454,16 +479,15 @@ function renderCard(){
         <div class="reveal" id="reveal"></div>
         ${HZ_HTML}
       </div>`;
-    // 「한글 확인」 — 음·뜻 + 쓰임새 표시
+    // 「한글 확인」 — 음·뜻 표시
     const reveal = el.querySelector('#reveal');
-    const usage = el.querySelector('#usage');
     const helpBtn = el.querySelector('#helpBtn');
     helpBtn.onclick = ()=>{
       const on = helpBtn.classList.toggle('on');
-      if (on){ reveal.innerHTML = `<span class="big">${card.e}</span><span class="hun">${card.hun}</span>`; usage.innerHTML = getUsage(card); }
-      else { reveal.innerHTML=''; usage.innerHTML=''; }
+      reveal.innerHTML = on ? `<span class="big">${card.e}</span><span class="hun">${card.hun}</span>` : '';
     };
     wireStroke(el, card);
+    el.querySelector('#usageBtn').onclick = ()=> openUsage(card);
   }
 
   el.querySelector('.know').onclick = ()=> flyOut(el, true);
@@ -594,6 +618,8 @@ function renderStart(){
 document.getElementById('clearHistBtn').onclick = ()=>{
   if (confirm('학습 기록을 모두 지울까요?')){ saveHistory([]); renderStart(); }
 };
+document.getElementById('modalClose').onclick = closeUsage;
+document.getElementById('usageModal').addEventListener('click', e=>{ if (e.target.id === 'usageModal') closeUsage(); });
 
 /* ===================== iOS 줌 방지 ===================== */
 // 핀치(두 손가락) 줌 차단 — iOS Safari 전용 gesture 이벤트
