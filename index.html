@@ -67,16 +67,19 @@
     background: #fff;
     padding: calc(12px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right)) calc(14px + env(safe-area-inset-bottom)) calc(16px + env(safe-area-inset-left));
     will-change: transform; touch-action: pan-y;
+    --accent: #2563eb; --accent-bg: #eef2ff;
   }
+  .card.mode-write { --accent: #15803d; --accent-bg: #dcfce7; }  /* 쓰기 = 초록 */
+  .card.mode-read  { --accent: #1d4ed8; --accent-bg: #dbeafe; }  /* 읽기 = 파랑 */
   .topbar { display: flex; align-items: center; gap: 8px; }
   .progress { font-size: 12px; color: #888; margin-right: auto; }
-  .progress b { color: #2563eb; }
-  .roundtag { font-size: 12px; background:#eef2ff; color:#4f46e5; border-radius:999px; padding:3px 10px; font-weight:700; }
+  .progress b { color: var(--accent,#2563eb); }
+  .roundtag { font-size: 12px; background: var(--accent-bg,#eef2ff); color: var(--accent,#4f46e5); border-radius:999px; padding:3px 10px; font-weight:700; }
   .help {
-    border: 1.5px solid #2563eb; color: #2563eb; background: #fff;
+    border: 1.5px solid var(--accent,#2563eb); color: var(--accent,#2563eb); background: #fff;
     border-radius: 999px; padding: 7px 13px; font-size: 13px; font-weight: 700; cursor: pointer; white-space: nowrap;
   }
-  .help.on { background: #2563eb; color: #fff; }
+  .help.on { background: var(--accent,#2563eb); color: #fff; }
   .prompt-wrap { text-align: center; padding: 10px 0 4px; }
   .prompt-label { font-size: 13px; color: #aaa; }
   .prompt { line-height: 1.1; }
@@ -121,8 +124,16 @@
   .readArea { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; }
   .bigHan { font-size: clamp(120px, 32vh, 280px); line-height: 1; color: #111; }
   .reveal { min-height: 34px; text-align: center; display: flex; align-items: baseline; gap: 8px; justify-content: center; }
-  .reveal .big { font-size: 34px; font-weight: 800; color: #2563eb; }
+  .reveal .big { font-size: 34px; font-weight: 800; color: var(--accent,#2563eb); }
   .reveal .hun { font-size: 18px; color: #777; font-weight: 500; }
+  /* 쓰임새(고사성어) */
+  .usage { margin-top: 4px; max-height: 24vh; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  .usage:empty { display: none; }
+  .uxhead { font-size: 12px; color: #999; font-weight: 700; margin: 2px 0; }
+  .ux { background: var(--accent-bg,#f1f5f9); border-radius: 10px; padding: 8px 11px; margin-top: 6px; font-size: 13px; line-height: 1.5; }
+  .ux b { font-family: "AppleMyungjo","Batang",serif; color: var(--accent,#2563eb); font-size: 15px; }
+  .uxr { color: #888; font-size: 12px; }
+  .uxm { color: #444; }
   .eumInput:focus { border-color: #2563eb; }
   .checkBtn { border: none; background: #eef2ff; color: #2563eb; font-weight: 700; border-radius: 12px; padding: 12px 22px; font-size: 16px; cursor: pointer; }
   .result { font-size: 17px; font-weight: 700; min-height: 24px; }
@@ -249,6 +260,38 @@ const DATA = [
 ];
 const SET_NAMES = {1:"세트1",2:"세트2",3:"세트3",4:"세트4",5:"십간·지지",6:"독도"};
 
+/* ===================== 쓰임새(고사성어·명구) ===================== */
+const IDIOMS = [
+  {w:'吾鼻三尺', r:'오비삼척', m:'내 코가 석 자 — 내 사정이 급해 남을 돌볼 겨를이 없음'},
+  {w:'坐井觀天', r:'좌정관천', m:'우물에 앉아 하늘을 봄 — 보고 들은 것이 좁음'},
+  {w:'三歲之習至于八十', r:'삼세지습지우팔십', m:'세 살 버릇 여든까지 감'},
+  {w:'愚公移山', r:'우공이산', m:'끊임없이 노력하면 큰일을 이룸'},
+  {w:'過猶不及', r:'과유불급', m:'지나침은 미치지 못함과 같음'},
+  {w:'精神一到何事不成', r:'정신일도하사불성', m:'정신을 모으면 못 이룰 일이 없음'},
+  {w:'大器晚成', r:'대기만성', m:'큰 그릇은 늦게 이루어짐 — 큰 인물은 늦게 성공'},
+  {w:'仁者無敵', r:'인자무적', m:'어진 사람에게는 적이 없음'},
+  {w:'欲勝人者必先自勝', r:'욕승인자필선자승', m:'남을 이기려면 먼저 자신을 이겨라'},
+  {w:'知之者不如好之者', r:'지지자불여호지자', m:'아는 사람은 좋아하는 사람만 못함 (논어)'},
+  {w:'好之者不如樂之者', r:'호지자불여락지자', m:'좋아하는 사람은 즐기는 사람만 못함 (논어)'},
+  {w:'登高自卑', r:'등고자비', m:'높이 오르려면 낮은 곳부터 — 일은 순서대로'},
+  {w:'于山武陵二島在縣正東海中', r:'우산무릉이도재현정동해중', m:'우산도·무릉도 두 섬은 현의 정동쪽 바다에 있다 (세종실록지리지 독도 기록)'},
+  {w:'二島相去不遠風日淸明則可望見', r:'이도상거불원 풍일청명즉가망견', m:'두 섬은 멀지 않아 날 맑으면 바라볼 수 있다 (독도 기록)'},
+];
+const USAGE_MAP = {};
+IDIOMS.forEach(i=>{ const seen=new Set(); for(const ch of i.w){ if(seen.has(ch))continue; seen.add(ch); (USAGE_MAP[ch]=USAGE_MAP[ch]||[]).push(i); } });
+function getUsage(card){
+  const list = USAGE_MAP[card.h] || [];
+  if (list.length){
+    return '<div class="uxhead">이 한자의 쓰임새</div>' + list.slice(0,3).map(i=>
+      `<div class="ux"><b>${i.w}</b> <span class="uxr">${i.r}</span><br><span class="uxm">${i.m}</span></div>`).join('');
+  }
+  if (card.s===5){
+    return '<div class="uxhead">이 한자의 쓰임새</div>' +
+      `<div class="ux"><b>${card.hun}</b><br><span class="uxm">십간(十干)·십이지(十二支) 간지(干支)에 쓰이는 글자</span></div>`;
+  }
+  return '';
+}
+
 /* ===================== 옵션 선택 ===================== */
 const cfg = { mode:"write", order:"seq", sets:new Set([1,2,3,4,5,6]) };
 
@@ -346,10 +389,8 @@ function renderCard(){
   const card = state.queue[state.idx];
   study.innerHTML = '';
   const el = document.createElement('div');
-  el.className = 'card';
-
   const isWrite = cfg.mode === 'write';
-  const helpLabel = isWrite ? '획순 보기' : '한글 확인';
+  el.className = 'card ' + (isWrite ? 'mode-write' : 'mode-read');
 
   el.innerHTML = `
     <div class="topbar">
@@ -364,6 +405,7 @@ function renderCard(){
       ${isWrite ? `<div class="prompt hun">${card.hun}</div>` : ``}
     </div>
     <div class="work" id="work"></div>
+    <div class="usage" id="usage"></div>
     <div class="actions">
       <button class="know">✓ 알아요</button>
       <button class="dontknow">✕ 몰라요</button>
@@ -391,9 +433,14 @@ function renderCard(){
       ansOv.style.fontSize = Math.max(120, Math.min(pw.width, pw.height) - 16) + 'px';
     });
     el.querySelector('#clearBtn').onclick = ()=> clearCanvas();
-    // 「한자」 — 옅은 글자 오버레이(따라쓰기 가이드)
+    // 「한자」 — 옅은 글자 오버레이(따라쓰기 가이드) + 쓰임새
+    const usage = el.querySelector('#usage');
     const peekBtn = el.querySelector('#peekBtn');
-    peekBtn.onclick = ()=>{ ansOv.classList.toggle('show'); peekBtn.classList.toggle('on'); };
+    peekBtn.onclick = ()=>{
+      const on = peekBtn.classList.toggle('on');
+      ansOv.classList.toggle('show', on);
+      usage.innerHTML = on ? getUsage(card) : '';
+    };
     wireStroke(el, card);
   } else {
     work.innerHTML = `
@@ -402,12 +449,14 @@ function renderCard(){
         <div class="reveal" id="reveal"></div>
         ${HZ_HTML}
       </div>`;
-    // 「한글 확인」 — 음과 뜻을 모두 표시
+    // 「한글 확인」 — 음·뜻 + 쓰임새 표시
     const reveal = el.querySelector('#reveal');
+    const usage = el.querySelector('#usage');
     const helpBtn = el.querySelector('#helpBtn');
     helpBtn.onclick = ()=>{
-      if (reveal.innerHTML){ reveal.innerHTML=''; helpBtn.classList.remove('on'); }
-      else { reveal.innerHTML = `<span class="big">${card.e}</span><span class="hun">${card.hun}</span>`; helpBtn.classList.add('on'); }
+      const on = helpBtn.classList.toggle('on');
+      if (on){ reveal.innerHTML = `<span class="big">${card.e}</span><span class="hun">${card.hun}</span>`; usage.innerHTML = getUsage(card); }
+      else { reveal.innerHTML=''; usage.innerHTML=''; }
     };
     wireStroke(el, card);
   }
