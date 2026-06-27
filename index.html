@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="한자 공부">
+<meta name="theme-color" content="#f4f5f7">
+<meta name="format-detection" content="telephone=no">
+<title>한자 공부</title>
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html { height: 100%; }
+  body {
+    margin: 0; overscroll-behavior: none;
+    position: fixed; inset: 0;            /* iOS 주소창 변동에도 화면 고정 */
+    font-family: "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+    background: #f4f5f7; color: #1a1a1a;
+    display: flex; flex-direction: column;
+    -webkit-user-select: none; user-select: none;
+    -webkit-text-size-adjust: 100%;
+  }
+  .serif { font-family: "AppleMyungjo", "Nanum Myeongjo", "Batang", serif; }
+
+  /* ===== 시작 화면 ===== */
+  #start { flex: 1; display: flex; flex-direction: column; gap: 22px; overflow-y: auto; -webkit-overflow-scrolling: touch;
+    padding: calc(26px + env(safe-area-inset-top)) calc(22px + env(safe-area-inset-right)) calc(26px + env(safe-area-inset-bottom)) calc(22px + env(safe-area-inset-left)); }
+  #start h1 { font-size: 26px; margin: 8px 0 0; text-align: center; }
+  #start .desc { text-align: center; color: #777; font-size: 13px; margin-top: -10px; }
+  .group { background: #fff; border-radius: 16px; padding: 16px; box-shadow: 0 1px 6px rgba(0,0,0,.05); }
+  .group > .t { font-size: 13px; color: #888; font-weight: 700; margin-bottom: 10px; }
+  .opts { display: flex; gap: 10px; flex-wrap: wrap; }
+  .opt {
+    flex: 1; min-width: 130px; border: 2px solid #e3e3e6; border-radius: 12px; padding: 14px 12px;
+    font-size: 15px; background: #fff; text-align: center; cursor: pointer; transition: .15s;
+  }
+  .opt small { display: block; color: #999; font-size: 12px; margin-top: 4px; font-weight: 400; }
+  .opt.sel { border-color: #2563eb; background: #eff4ff; color: #1d4ed8; font-weight: 700; }
+  .chips { display: flex; gap: 8px; flex-wrap: wrap; }
+  .chip { border: 2px solid #e3e3e6; border-radius: 999px; padding: 8px 14px; font-size: 14px; background: #fff; cursor: pointer; }
+  .chip.sel { border-color: #7c3aed; background: #f5f0ff; color: #7c3aed; font-weight: 700; }
+  .btnrow { margin-top: auto; display: flex; flex-direction: column; gap: 10px; }
+  #startBtn {
+    border: none; border-radius: 14px; padding: 18px; font-size: 18px; font-weight: 800;
+    background: #2563eb; color: #fff; cursor: pointer; box-shadow: 0 6px 16px rgba(37,99,235,.3);
+  }
+  #startBtn:active { transform: translateY(1px); }
+  #resumeBtn { border: none; border-radius: 14px; padding: 14px; font-size: 17px; font-weight: 800;
+    background: #dcfce7; color: #15803d; cursor: pointer; }
+  #resumeBtn small { display: block; font-weight: 500; color: #16a34a; font-size: 12px; margin-top: 3px; }
+  #historyList .hrec { border-bottom: 1px solid #f1f1f3; padding: 8px 2px; display: flex; flex-direction: column; gap: 2px; }
+  #historyList .hrec:last-child { border-bottom: none; }
+  #historyList .hd { color: #aaa; font-size: 12px; }
+  #historyList .hm { color: #555; font-size: 13px; }
+  #historyList .hr { color: #2563eb; font-size: 13px; }
+  #historyList .hr b { font-size: 15px; }
+  #clearHistBtn { margin-top: 10px; border: none; background: #f1f5f9; color: #64748b; border-radius: 10px; padding: 8px 14px; font-size: 13px; cursor: pointer; }
+
+  /* ===== 학습 화면 ===== */
+  #study { flex: 1; position: relative; display: none; overflow: hidden; }
+  .card {
+    position: absolute; inset: 0; display: flex; flex-direction: column;
+    background: #fff;
+    padding: calc(12px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right)) calc(14px + env(safe-area-inset-bottom)) calc(16px + env(safe-area-inset-left));
+    will-change: transform; touch-action: pan-y;
+  }
+  .topbar { display: flex; align-items: center; gap: 10px; }
+  .progress { font-size: 13px; color: #888; }
+  .progress b { color: #2563eb; }
+  .roundtag { font-size: 12px; background:#eef2ff; color:#4f46e5; border-radius:999px; padding:3px 10px; font-weight:700; }
+  .help {
+    margin-left: auto; border: 1.5px solid #2563eb; color: #2563eb; background: #fff;
+    border-radius: 999px; padding: 8px 14px; font-size: 14px; font-weight: 700; cursor: pointer;
+  }
+  .help.on { background: #2563eb; color: #fff; }
+  .prompt-wrap { text-align: center; padding: 10px 0 4px; }
+  .prompt-label { font-size: 13px; color: #aaa; }
+  .prompt { line-height: 1.1; }
+  .prompt.hun { font-size: 40px; font-weight: 800; color: #111; margin-top: 4px; }
+  .prompt.han { font-size: 96px; font-weight: 700; margin-top: 2px; }
+
+  .work { flex: 1; position: relative; margin: 8px 0; min-height: 0; }
+  /* 모드1 캔버스 */
+  .padwrap { position: absolute; inset: 0; border: 2px dashed #cbd5e1; border-radius: 16px; overflow: hidden; background:
+    linear-gradient(to right, transparent calc(50% - 0.5px), #eef2f6 calc(50% - 0.5px), #eef2f6 calc(50% + 0.5px), transparent calc(50% + 0.5px)),
+    linear-gradient(to bottom, transparent calc(50% - 0.5px), #eef2f6 calc(50% - 0.5px), #eef2f6 calc(50% + 0.5px), transparent calc(50% + 0.5px)); }
+  canvas { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; }
+  .answerOverlay {
+    position: absolute; inset: 0; display: none; align-items: center; justify-content: center;
+    font-size: 180px; color: rgba(37,99,235,.18); pointer-events: none;
+  }
+  .answerOverlay.show { display: flex; }
+  .clearBtn {
+    position: absolute; right: 10px; bottom: 10px; border: none; background: #f1f5f9; color: #475569;
+    border-radius: 10px; padding: 8px 12px; font-size: 13px; cursor: pointer; z-index: 2;
+  }
+  /* 모드2 입력 */
+  .inputArea { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 14px; padding-top: 8px; }
+  .eumInput {
+    width: 100%; max-width: 340px; text-align: center; font-size: 30px; font-weight: 700;
+    border: none; border-bottom: 3px solid #cbd5e1; padding: 10px; outline: none; background: transparent;
+  }
+  .eumInput:focus { border-color: #2563eb; }
+  .checkBtn { border: none; background: #eef2ff; color: #2563eb; font-weight: 700; border-radius: 12px; padding: 12px 22px; font-size: 16px; cursor: pointer; }
+  .result { font-size: 17px; font-weight: 700; min-height: 24px; }
+  .result.ok { color: #059669; }
+  .result.no { color: #dc2626; }
+  .hintbox { text-align: center; font-size: 20px; font-weight: 700; color: #2563eb; min-height: 26px; }
+  .hintbox .hun { color:#777; font-size: 15px; font-weight: 500; }
+
+  .actions { display: flex; gap: 12px; padding-top: 6px; }
+  .actions button { flex: 1; border: none; border-radius: 14px; padding: 16px; font-size: 17px; font-weight: 800; cursor: pointer; }
+  .know { background: #dcfce7; color: #15803d; }
+  .dontknow { background: #fee2e2; color: #b91c1c; }
+  .swipehint { text-align: center; font-size: 12px; color: #bbb; margin-top: 8px; }
+
+  /* ===== 완료 화면 ===== */
+  #done { flex: 1; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 18px; padding: 30px; text-align: center; }
+  #done .big { font-size: 64px; }
+  #done h2 { font-size: 24px; margin: 0; }
+  #done p { color: #777; margin: 0; }
+  #done button { border: none; border-radius: 14px; padding: 16px 28px; font-size: 17px; font-weight: 800; cursor: pointer; }
+  #againBtn { background: #2563eb; color: #fff; }
+  #homeBtn { background: #eef2f6; color: #475569; }
+</style>
+</head>
+<body>
+
+<!-- 시작 화면 -->
+<div id="start">
+  <h1>📚 한자 공부</h1>
+  <div class="desc">알면 ← 왼쪽, 모르면 → 오른쪽으로 넘기세요</div>
+
+  <div class="group">
+    <div class="t">공부 모드</div>
+    <div class="opts">
+      <div class="opt sel" data-mode="write">한자 쓰기<small>한글 뜻·음 → 한자 손글씨</small></div>
+      <div class="opt" data-mode="read">한글 읽기<small>한자 → 한글 음 입력</small></div>
+    </div>
+  </div>
+
+  <div class="group">
+    <div class="t">제시 순서</div>
+    <div class="opts">
+      <div class="opt sel" data-order="seq">순차<small>학습표 순서대로</small></div>
+      <div class="opt" data-order="rand">랜덤<small>섞어서</small></div>
+    </div>
+  </div>
+
+  <div class="group">
+    <div class="t">범위 (세트 선택)</div>
+    <div class="chips" id="setChips"></div>
+  </div>
+
+  <div class="group" id="historyGroup" style="display:none">
+    <div class="t">학습 기록</div>
+    <div id="historyList"></div>
+    <button id="clearHistBtn">기록 지우기</button>
+  </div>
+
+  <div class="btnrow">
+    <button id="resumeBtn" style="display:none"></button>
+    <button id="startBtn">새로 시작하기</button>
+  </div>
+</div>
+
+<!-- 학습 화면 -->
+<div id="study"></div>
+
+<!-- 완료 화면 -->
+<div id="done">
+  <div class="big">🎉</div>
+  <h2>모두 익혔어요!</h2>
+  <p id="doneMsg"></p>
+  <button id="againBtn">한 번 더</button>
+  <button id="homeBtn">처음으로</button>
+</div>
+
+<script>
+/* ===================== 데이터 ===================== */
+const DATA = [
+  // 세트1
+  {h:"吾",e:"오",hun:"나 오",s:1},{h:"鼻",e:"비",hun:"코 비",s:1},{h:"三",e:"삼",hun:"석 삼",s:1},
+  {h:"尺",e:"척",hun:"자 척",s:1},{h:"坐",e:"좌",hun:"앉을 좌",s:1},{h:"井",e:"정",hun:"우물 정",s:1},
+  {h:"觀",e:"관",hun:"볼 관",s:1},{h:"天",e:"천",hun:"하늘 천",s:1},{h:"歲",e:"세",hun:"해 세",s:1},
+  {h:"之",e:"지",hun:"갈 지",s:1},{h:"習",e:"습",hun:"익힐 습",s:1},{h:"至",e:"지",hun:"이를 지",s:1},
+  {h:"于",e:"우",hun:"어조사 우",s:1},{h:"八",e:"팔",hun:"여덟 팔",s:1},{h:"十",e:"십",hun:"열 십",s:1},
+  // 세트2
+  {h:"愚",e:"우",hun:"어리석을 우",s:2},{h:"公",e:"공",hun:"공평할 공",s:2},{h:"移",e:"이",hun:"옮길 이",s:2},
+  {h:"山",e:"산",hun:"메 산",s:2},{h:"過",e:"과",hun:"지날 과",s:2},{h:"猶",e:"유",hun:"오히려 유",s:2},
+  {h:"不",e:"불",hun:"아닐 불",s:2},{h:"及",e:"급",hun:"미칠 급",s:2},{h:"談",e:"담",hun:"말씀 담",s:2},
+  {h:"虎",e:"호",hun:"범 호",s:2},{h:"人",e:"인",hun:"사람 인",s:2},{h:"好",e:"호",hun:"좋을 호",s:2},
+  {h:"者",e:"자",hun:"놈 자",s:2},{h:"如",e:"여",hun:"같을 여",s:2},{h:"樂",e:"락",hun:"즐길 락",s:2},
+  {h:"精",e:"정",hun:"정할 정",s:2},{h:"神",e:"신",hun:"귀신 신",s:2},{h:"一",e:"일",hun:"한 일",s:2},
+  {h:"到",e:"도",hun:"이를 도",s:2},{h:"何",e:"하",hun:"어찌 하",s:2},{h:"事",e:"사",hun:"일 사",s:2},
+  {h:"成",e:"성",hun:"이룰 성",s:2},
+  // 세트3
+  {h:"大",e:"대",hun:"큰 대",s:3},{h:"器",e:"기",hun:"그릇 기",s:3},{h:"晚",e:"만",hun:"늦을 만",s:3},
+  {h:"仁",e:"인",hun:"어질 인",s:3},{h:"無",e:"무",hun:"없을 무",s:3},{h:"敵",e:"적",hun:"대적할 적",s:3},
+  {h:"欲",e:"욕",hun:"하고자할 욕",s:3},{h:"勝",e:"승",hun:"이길 승",s:3},{h:"必",e:"필",hun:"반드시 필",s:3},
+  {h:"先",e:"선",hun:"먼저 선",s:3},{h:"自",e:"자",hun:"스스로 자",s:3},
+  // 세트4
+  {h:"登",e:"등",hun:"오를 등",s:4},{h:"高",e:"고",hun:"높을 고",s:4},{h:"知",e:"지",hun:"알 지",s:4},
+  {h:"也",e:"야",hun:"어조사 야",s:4},
+  // 세트5
+  {h:"甲",e:"갑",hun:"첫째천간 갑",s:5},{h:"乙",e:"을",hun:"둘째천간 을",s:5},{h:"丙",e:"병",hun:"셋째천간 병",s:5},
+  {h:"丁",e:"정",hun:"넷째천간 정",s:5},{h:"戊",e:"무",hun:"다섯째천간 무",s:5},{h:"己",e:"기",hun:"여섯째천간 기",s:5},
+  {h:"庚",e:"경",hun:"일곱째천간 경",s:5},{h:"辛",e:"신",hun:"여덟째천간 신",s:5},{h:"壬",e:"임",hun:"아홉째천간 임",s:5},
+  {h:"癸",e:"계",hun:"열째천간 계",s:5},{h:"子",e:"자",hun:"첫째지지 자",s:5},{h:"丑",e:"축",hun:"둘째지지 축",s:5},
+  {h:"寅",e:"인",hun:"셋째지지 인",s:5},{h:"卯",e:"묘",hun:"넷째지지 묘",s:5},{h:"辰",e:"진",hun:"다섯째지지 진",s:5},
+  {h:"巳",e:"사",hun:"여섯째지지 사",s:5},{h:"午",e:"오",hun:"일곱째지지 오",s:5},{h:"未",e:"미",hun:"여덟째지지 미",s:5},
+  {h:"申",e:"신",hun:"아홉째지지 신",s:5},{h:"酉",e:"유",hun:"열째지지 유",s:5},{h:"戌",e:"술",hun:"열한째지지 술",s:5},
+  {h:"亥",e:"해",hun:"열두째지지 해",s:5},
+  // 세트6
+  {h:"獨",e:"독",hun:"홀로 독",s:6},{h:"島",e:"도",hun:"섬 도",s:6},{h:"武",e:"무",hun:"굳셀 무",s:6},
+  {h:"陵",e:"릉",hun:"언덕 릉",s:6},{h:"二",e:"이",hun:"두 이",s:6},{h:"在",e:"재",hun:"있을 재",s:6},
+  {h:"縣",e:"현",hun:"고을 현",s:6},{h:"正",e:"정",hun:"바를 정",s:6},{h:"東",e:"동",hun:"동녘 동",s:6},
+  {h:"海",e:"해",hun:"바다 해",s:6},{h:"中",e:"중",hun:"가운데 중",s:6},{h:"相",e:"상",hun:"서로 상",s:6},
+  {h:"去",e:"거",hun:"갈 거",s:6},{h:"遠",e:"원",hun:"멀 원",s:6},{h:"風",e:"풍",hun:"바람 풍",s:6},
+  {h:"日",e:"일",hun:"날 일",s:6},{h:"淸",e:"청",hun:"맑을 청",s:6},{h:"明",e:"명",hun:"밝을 명",s:6},
+  {h:"卽",e:"즉",hun:"곧 즉",s:6},{h:"可",e:"가",hun:"옳을 가",s:6},{h:"望",e:"망",hun:"바랄 망",s:6},
+  {h:"見",e:"견",hun:"볼 견",s:6},
+];
+const SET_NAMES = {1:"세트1",2:"세트2",3:"세트3",4:"세트4",5:"십간·지지",6:"독도"};
+
+/* ===================== 옵션 선택 ===================== */
+const cfg = { mode:"write", order:"seq", sets:new Set([1,2,3,4,5,6]) };
+
+document.querySelectorAll('.opt[data-mode]').forEach(el=>el.onclick=()=>{
+  document.querySelectorAll('.opt[data-mode]').forEach(x=>x.classList.remove('sel'));
+  el.classList.add('sel'); cfg.mode = el.dataset.mode;
+});
+document.querySelectorAll('.opt[data-order]').forEach(el=>el.onclick=()=>{
+  document.querySelectorAll('.opt[data-order]').forEach(x=>x.classList.remove('sel'));
+  el.classList.add('sel'); cfg.order = el.dataset.order;
+});
+const setChips = document.getElementById('setChips');
+[1,2,3,4,5,6].forEach(s=>{
+  const c = document.createElement('div');
+  c.className = 'chip sel'; c.textContent = SET_NAMES[s];
+  c.onclick = ()=>{
+    if (cfg.sets.has(s)) { cfg.sets.delete(s); c.classList.remove('sel'); }
+    else { cfg.sets.add(s); c.classList.add('sel'); }
+  };
+  setChips.appendChild(c);
+});
+
+/* ===================== 학습 상태 ===================== */
+let state = null;
+function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+
+function beginSession(st){
+  state = st;
+  document.getElementById('start').style.display='none';
+  document.getElementById('done').style.display='none';
+  document.getElementById('study').style.display='block';
+  renderCard();
+}
+document.getElementById('startBtn').onclick = ()=>{
+  if (cfg.sets.size === 0){ alert('세트를 하나 이상 선택하세요.'); return; }
+  let pool = DATA.filter(d=>cfg.sets.has(d.s)).slice();
+  if (cfg.order === 'rand') shuffle(pool);
+  beginSession({ queue: pool, idx: 0, unknown: [], round: 1, total: pool.length,
+    startAt: Date.now(), firstKnown: 0,
+    cfg: { mode: cfg.mode, order: cfg.order, sets: [...cfg.sets] } });
+  saveProgress();
+};
+document.getElementById('resumeBtn').onclick = ()=>{
+  const p = loadProgress();
+  if (!p || !p.state){ renderStart(); return; }
+  cfg.mode = p.state.cfg.mode; cfg.order = p.state.cfg.order; cfg.sets = new Set(p.state.cfg.sets);
+  beginSession(p.state);
+};
+
+/* ===================== 카드 렌더 ===================== */
+const study = document.getElementById('study');
+function renderCard(){
+  const card = state.queue[state.idx];
+  study.innerHTML = '';
+  const el = document.createElement('div');
+  el.className = 'card';
+
+  const isWrite = cfg.mode === 'write';
+  const helpLabel = isWrite ? '한자 보기' : '한글 확인';
+
+  el.innerHTML = `
+    <div class="topbar">
+      <span class="roundtag">라운드 ${state.round}</span>
+      <span class="progress"><b>${state.idx+1}</b> / ${state.queue.length} · 모름 ${state.unknown.length}</span>
+      <button class="help" id="helpBtn">${helpLabel}</button>
+    </div>
+    <div class="prompt-wrap">
+      <div class="prompt-label">${isWrite ? '다음 뜻·음의 한자를 쓰세요' : '다음 한자의 음을 쓰세요'}</div>
+      <div class="prompt ${isWrite?'hun':'han serif'}">${isWrite ? card.hun : card.h}</div>
+    </div>
+    <div class="work" id="work"></div>
+    <div class="hintbox" id="hintbox"></div>
+    <div class="actions">
+      <button class="know">✓ 알아요</button>
+      <button class="dontknow">✕ 몰라요</button>
+    </div>
+    <div class="swipehint">알면 「알아요」, 모르면 「몰라요」를 누르세요</div>
+  `;
+  study.appendChild(el);
+
+  const work = el.querySelector('#work');
+  const hintbox = el.querySelector('#hintbox');
+  const helpBtn = el.querySelector('#helpBtn');
+
+  if (isWrite){
+    work.innerHTML = `
+      <div class="padwrap">
+        <canvas id="pad"></canvas>
+        <div class="answerOverlay serif" id="ansOv">${card.h}</div>
+        <button class="clearBtn" id="clearBtn">↺ 지우기</button>
+      </div>`;
+    const padEl = el.querySelector('#pad');
+    requestAnimationFrame(()=> setupCanvas(padEl));   // 레이아웃 확정 후 캔버스 크기 계산
+    el.querySelector('#clearBtn').onclick = ()=> clearCanvas();
+    helpBtn.onclick = ()=>{
+      const ov = el.querySelector('#ansOv');
+      ov.classList.toggle('show'); helpBtn.classList.toggle('on');
+    };
+  } else {
+    work.innerHTML = `
+      <div class="inputArea">
+        <input class="eumInput" id="eumIn" type="text" inputmode="text" lang="ko"
+               autocomplete="off" autocorrect="off" autocapitalize="off" placeholder="여기에 음을 써 보세요">
+      </div>`;
+    helpBtn.onclick = ()=>{
+      if (hintbox.innerHTML){ hintbox.innerHTML=''; helpBtn.classList.remove('on'); }
+      else { hintbox.innerHTML = `정답: ${card.e} <span class="hun">(${card.hun})</span>`; helpBtn.classList.add('on'); }
+    };
+  }
+
+  el.querySelector('.know').onclick = ()=> flyOut(el, true);
+  el.querySelector('.dontknow').onclick = ()=> flyOut(el, false);
+}
+
+/* ===================== 캔버스 손글씨 ===================== */
+let curCtx=null, curCanvas=null;
+function setupCanvas(canvas){
+  curCanvas = canvas;
+  const rect = canvas.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = rect.width * dpr; canvas.height = rect.height * dpr;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  ctx.lineCap='round'; ctx.lineJoin='round'; ctx.lineWidth=10; ctx.strokeStyle='#1f2937';
+  curCtx = ctx;
+  let drawing=false;
+  const pos = e=>{ const r=canvas.getBoundingClientRect(); const t=e.touches?e.touches[0]:e; return {x:t.clientX-r.left, y:t.clientY-r.top}; };
+  const start = e=>{ e.preventDefault(); drawing=true; const p=pos(e); ctx.beginPath(); ctx.moveTo(p.x,p.y); };
+  const move = e=>{ if(!drawing)return; e.preventDefault(); const p=pos(e); ctx.lineTo(p.x,p.y); ctx.stroke(); };
+  const end = ()=>{ drawing=false; };
+  canvas.addEventListener('pointerdown', start);
+  canvas.addEventListener('pointermove', move);
+  canvas.addEventListener('pointerup', end);
+  canvas.addEventListener('pointerleave', end);
+}
+function clearCanvas(){ if(curCtx&&curCanvas){ const r=curCanvas.getBoundingClientRect(); curCtx.clearRect(0,0,r.width,r.height);} }
+
+/* ===================== 판정 & 라운드 ===================== */
+function flyOut(card, known){
+  const dir = known ? -1 : 1;
+  card.style.transition = 'transform .28s ease-in, opacity .28s';
+  card.style.transform = `translateX(${dir*window.innerWidth*1.2}px) rotate(${dir*12}deg)`;
+  card.style.opacity = '0';
+  setTimeout(()=>decide(known), 220);
+}
+function decide(known){
+  const card = state.queue[state.idx];
+  if (state.round === 1 && known) state.firstKnown++;
+  if (!known) state.unknown.push(card);
+  state.idx++;
+  saveProgress();
+  if (state.idx >= state.queue.length) finishRound();
+  else renderCard();
+}
+function finishRound(){
+  if (state.unknown.length === 0){ showDone(); return; }
+  let next = state.unknown.slice();
+  if (state.cfg.order === 'rand') shuffle(next);
+  state.queue = next; state.unknown = []; state.idx = 0; state.round++;
+  saveProgress();
+  renderCard();
+}
+function showDone(){
+  const durationSec = Math.max(1, Math.round((Date.now() - state.startAt)/1000));
+  const rec = {
+    atStr: fmtDate(new Date()),
+    modeLabel: state.cfg.mode === 'write' ? '한자 쓰기' : '한글 읽기',
+    total: state.total, rounds: state.round,
+    firstRate: Math.round(state.firstKnown / state.total * 100),
+    durationSec
+  };
+  addHistory(rec);
+  clearProgress();
+  study.style.display='none';
+  const done = document.getElementById('done');
+  done.style.display='flex';
+  document.getElementById('doneMsg').innerHTML =
+    `총 <b>${state.total}자</b>를 <b>${state.round}라운드</b> 만에 모두 익혔어요.<br>` +
+    `첫 라운드 정답률 <b>${rec.firstRate}%</b> · 걸린 시간 ${fmtDur(durationSec)}`;
+}
+document.getElementById('againBtn').onclick = ()=> document.getElementById('startBtn').click();
+document.getElementById('homeBtn').onclick = ()=>{
+  document.getElementById('done').style.display='none';
+  study.style.display='none';
+  document.getElementById('start').style.display='flex';
+  renderStart();
+};
+
+/* ===================== 로컬 스토리지 ===================== */
+const LS_HIST = 'hanja_history_v1', LS_PROG = 'hanja_progress_v1';
+function loadHistory(){ try { return JSON.parse(localStorage.getItem(LS_HIST)) || []; } catch(e){ return []; } }
+function saveHistory(h){ try { localStorage.setItem(LS_HIST, JSON.stringify(h.slice(0,30))); } catch(e){} }
+function addHistory(rec){ const h = loadHistory(); h.unshift(rec); saveHistory(h); }
+function loadProgress(){ try { return JSON.parse(localStorage.getItem(LS_PROG)); } catch(e){ return null; } }
+function saveProgress(){ try { localStorage.setItem(LS_PROG, JSON.stringify({ state })); } catch(e){} }
+function clearProgress(){ try { localStorage.removeItem(LS_PROG); } catch(e){} }
+function fmtDate(d){ const p = n => String(n).padStart(2,'0');
+  return `${d.getFullYear()}.${p(d.getMonth()+1)}.${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`; }
+function fmtDur(s){ const m = Math.floor(s/60), ss = s%60; return m ? `${m}분 ${ss}초` : `${ss}초`; }
+
+function renderStart(){
+  const p = loadProgress();
+  const rb = document.getElementById('resumeBtn');
+  if (p && p.state && p.state.queue && p.state.idx < p.state.queue.length){
+    const st = p.state, lbl = st.cfg.mode === 'write' ? '한자 쓰기' : '한글 읽기';
+    rb.style.display = 'block';
+    rb.innerHTML = `⏵ 이어서 학습하기<small>${lbl} · 라운드 ${st.round} · ${st.idx}/${st.queue.length} 진행 중</small>`;
+  } else rb.style.display = 'none';
+
+  const hist = loadHistory();
+  const hg = document.getElementById('historyGroup');
+  const hl = document.getElementById('historyList');
+  if (hist.length){
+    hg.style.display = 'block';
+    hl.innerHTML = hist.slice(0,8).map(r => `
+      <div class="hrec">
+        <span class="hd">${r.atStr}</span>
+        <span class="hm">${r.modeLabel} · ${r.total}자</span>
+        <span class="hr">첫 라운드 정답률 <b>${r.firstRate}%</b> · ${r.rounds}R · ${fmtDur(r.durationSec)}</span>
+      </div>`).join('');
+  } else hg.style.display = 'none';
+}
+document.getElementById('clearHistBtn').onclick = ()=>{
+  if (confirm('학습 기록을 모두 지울까요?')){ saveHistory([]); renderStart(); }
+};
+renderStart();
+</script>
+</body>
+</html>
