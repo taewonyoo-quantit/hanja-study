@@ -9,6 +9,7 @@
 <meta name="theme-color" content="#f4f5f7">
 <meta name="format-detection" content="telephone=no">
 <title>한자 공부</title>
+<script src="https://cdn.jsdelivr.net/npm/hanzi-writer@3/dist/hanzi-writer.min.js"></script>
 <style>
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html { height: 100%; }
@@ -86,11 +87,12 @@
     linear-gradient(to right, transparent calc(50% - 0.5px), #eef2f6 calc(50% - 0.5px), #eef2f6 calc(50% + 0.5px), transparent calc(50% + 0.5px)),
     linear-gradient(to bottom, transparent calc(50% - 0.5px), #eef2f6 calc(50% - 0.5px), #eef2f6 calc(50% + 0.5px), transparent calc(50% + 0.5px)); }
   canvas { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; }
-  .answerOverlay {
+  .hzView {
     position: absolute; inset: 0; display: none; align-items: center; justify-content: center;
-    font-size: 180px; color: rgba(37,99,235,.18); pointer-events: none;
+    background: rgba(255,255,255,.97); border-radius: 16px; z-index: 3;
   }
-  .answerOverlay.show { display: flex; }
+  .hzFail { color: #999; font-size: 15px; text-align: center; padding: 20px; line-height: 1.6; }
+  .hzView svg path { /* hanzi-writer 외곽선/획 */ }
   .clearBtn {
     position: absolute; right: 10px; bottom: 10px; border: none; background: #f1f5f9; color: #475569;
     border-radius: 10px; padding: 8px 12px; font-size: 13px; cursor: pointer; z-index: 2;
@@ -282,7 +284,7 @@ function renderCard(){
   el.className = 'card';
 
   const isWrite = cfg.mode === 'write';
-  const helpLabel = isWrite ? '한자 보기' : '한글 확인';
+  const helpLabel = isWrite ? '획순 보기' : '한글 확인';
 
   el.innerHTML = `
     <div class="topbar">
@@ -312,15 +314,31 @@ function renderCard(){
     work.innerHTML = `
       <div class="padwrap">
         <canvas id="pad"></canvas>
-        <div class="answerOverlay serif" id="ansOv">${card.h}</div>
+        <div class="hzView" id="hzView"></div>
         <button class="clearBtn" id="clearBtn">↺ 지우기</button>
       </div>`;
     const padEl = el.querySelector('#pad');
     requestAnimationFrame(()=> setupCanvas(padEl));   // 레이아웃 확정 후 캔버스 크기 계산
     el.querySelector('#clearBtn').onclick = ()=> clearCanvas();
+    const hz = el.querySelector('#hzView');
     helpBtn.onclick = ()=>{
-      const ov = el.querySelector('#ansOv');
-      ov.classList.toggle('show'); helpBtn.classList.toggle('on');
+      if (hz.style.display === 'flex'){   // 닫기
+        hz.style.display='none'; hz.innerHTML=''; helpBtn.classList.remove('on'); return;
+      }
+      hz.style.display='flex'; hz.innerHTML=''; helpBtn.classList.add('on');
+      if (!window.HanziWriter){ hz.innerHTML = '<div class="hzFail">획순 데이터를 불러오지 못했어요.<br>인터넷 연결을 확인해 주세요.</div>'; return; }
+      requestAnimationFrame(()=>{
+        const r = hz.getBoundingClientRect();
+        const sz = Math.max(120, Math.min(r.width, r.height) - 16);
+        const hzChar = ({'卽':'即','淸':'清'})[card.h] || card.h;  // 이체자 → 표준 자형(획순 데이터)
+        const writer = HanziWriter.create(hz, hzChar, {
+          width: sz, height: sz, padding: 6,
+          showOutline: true, strokeColor: '#1f2937', outlineColor: '#dbe2ea',
+          strokeAnimationSpeed: 1, delayBetweenStrokes: 320, delayBetweenLoops: 1600,
+          onLoadCharDataError: ()=>{ hz.innerHTML = '<div class="hzFail">「'+card.h+'」 획순 데이터가 없어요.<br>아래 캔버스에 직접 써 보세요.</div>'; }
+        });
+        writer.loopCharacterAnimation();
+      });
     };
   } else {
     work.innerHTML = `
