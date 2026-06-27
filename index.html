@@ -101,7 +101,8 @@
     position: absolute; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center;
     gap: 8px; background: rgba(255,255,255,.98); border-radius: 16px; z-index: 4; padding: 10px;
   }
-  .hzCount { font-size: 15px; font-weight: 800; color: #2563eb; }
+  .hzCount { font-size: 15px; font-weight: 800; color: #2563eb; text-align: center; }
+  .hzNote { font-size: 12px; font-weight: 600; color: #e07b00; }
   .hzStage { flex: 1; width: 100%; display: flex; align-items: center; justify-content: center; min-height: 0; }
   .hzCtrls { display: flex; gap: 10px; }
   .hzCtrls button { border: none; border-radius: 10px; padding: 9px 18px; font-size: 14px; font-weight: 700; cursor: pointer; }
@@ -362,12 +363,13 @@ function wireStroke(el, card){
   const strokeBtn = el.querySelector('#strokeBtn');
   if (!strokeBtn) return;
   const hzChar = ({'卽':'即','淸':'清'})[card.h] || card.h;  // 이체자 → 표준 자형
+  const mapped = hzChar !== card.h;
   let writer = null;
   function open(){
     hzView.style.display='flex'; strokeBtn.classList.add('on');
     hzStage.innerHTML=''; hzCount.textContent=''; writer=null;
     if (!window.HanziWriter){ hzStage.innerHTML='<div class="hzFail">획순 데이터를 불러오지 못했어요.<br>인터넷 연결을 확인해 주세요.</div>'; return; }
-    HanziWriter.loadCharacterData(hzChar).then(d=>{ if (d && d.strokes) hzCount.textContent='총 '+d.strokes.length+'획'; }).catch(()=>{});
+    HanziWriter.loadCharacterData(hzChar).then(d=>{ if (d && d.strokes) hzCount.innerHTML = '총 ' + d.strokes.length + '획' + (mapped ? `<br><span class="hzNote">※ 표준 자형 ‘${hzChar}’ 기준 — 학습 자형 ‘${card.h}’과 모양이 다릅니다</span>` : ''); }).catch(()=>{});
     requestAnimationFrame(()=>{
       const r = hzStage.getBoundingClientRect();
       const sz = Math.max(120, Math.min(r.width, r.height) - 8);
