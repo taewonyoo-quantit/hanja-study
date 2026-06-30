@@ -48,10 +48,11 @@
     background: #2563eb; color: #fff; cursor: pointer; box-shadow: 0 6px 16px rgba(37,99,235,.3);
   }
   #startBtn:active { transform: translateY(1px); }
-  .resumeBtn { border: none; border-radius: 14px; padding: 14px; font-size: 16px; font-weight: 800; cursor: pointer; text-align: center; }
+  #resumeList { display: flex; flex-direction: column; gap: 10px; }
+  .resumeBtn { border: none; border-radius: 14px; padding: 14px; font-size: 16px; font-weight: 800; cursor: pointer; text-align: center; width: 100%; }
   .resumeBtn small { display: block; font-weight: 500; font-size: 12px; margin-top: 3px; opacity: .9; }
-  #resumeWrite { background: #dcfce7; color: #15803d; }
-  #resumeRead { background: #dbeafe; color: #1d4ed8; }
+  .resumeBtn.mode-write { background: #dcfce7; color: #15803d; }
+  .resumeBtn.mode-read { background: #dbeafe; color: #1d4ed8; }
   #historyList .hrec { border-bottom: 1px solid #f1f1f3; padding: 8px 2px; display: flex; flex-direction: column; gap: 2px; }
   #historyList .hrec:last-child { border-bottom: none; }
   #historyList .hd { color: #aaa; font-size: 12px; }
@@ -85,6 +86,8 @@
   .prompt { line-height: 1.1; }
   .prompt.hun { font-size: 40px; font-weight: 800; color: #111; margin-top: 4px; }
   .prompt.han { font-size: 96px; font-weight: 700; margin-top: 2px; }
+  .prompt.phrase { font-size: clamp(24px, 7vw, 38px); font-weight: 800; color: #111; margin-top: 4px; line-height: 1.3; word-break: break-all; padding: 0 6px; }
+  .prompt-sub { font-size: 14px; color: #888; margin-top: 8px; padding: 0 10px; line-height: 1.4; }
 
   .work { flex: 1; position: relative; margin: 8px 0; min-height: 0; }
   /* 모드1 캔버스 */
@@ -124,9 +127,13 @@
   /* 모드2: 큰 한자 + 음·뜻 표시 */
   .readArea { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; }
   .bigHan { font-size: clamp(120px, 32vh, 280px); line-height: 1; color: #111; }
-  .reveal { min-height: 34px; text-align: center; display: flex; align-items: baseline; gap: 8px; justify-content: center; }
+  .bigHan.phrase { font-size: clamp(30px, 8.5vw, 60px); line-height: 1.35; word-break: break-all; padding: 0 14px; text-align: center; }
+  .reveal { min-height: 34px; text-align: center; display: flex; align-items: baseline; gap: 8px; justify-content: center; flex-wrap: wrap; padding: 0 12px; }
   .reveal .big { font-size: 34px; font-weight: 800; color: var(--accent,#2563eb); }
   .reveal .hun { font-size: 18px; color: #777; font-weight: 500; }
+  .reveal.phrase { flex-direction: column; gap: 4px; }
+  .reveal.phrase .big { font-size: 22px; }
+  .reveal.phrase .hun { font-size: 15px; }
   /* 쓰임새 모달 */
   .modal { position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,.45); padding: 20px; }
   .modalCard { background: #fff; border-radius: 16px; width: 100%; max-width: 440px; max-height: 78vh; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 12px 40px rgba(0,0,0,.3); }
@@ -176,10 +183,18 @@
   <div class="desc">알면 ← 왼쪽, 모르면 → 오른쪽으로 넘기세요</div>
 
   <div class="group">
-    <div class="t">공부 모드</div>
+    <div class="t">대상</div>
     <div class="opts">
-      <div class="opt sel" data-mode="write">한자 쓰기<small>한글 뜻·음 → 한자 손글씨</small></div>
-      <div class="opt" data-mode="read">한글 읽기<small>한자 → 한글 음 입력</small></div>
+      <div class="opt sel" data-unit="char">글자<small>한자 한 자씩</small></div>
+      <div class="opt" data-unit="idiom">고사성어·구절<small>성어를 통째로</small></div>
+    </div>
+  </div>
+
+  <div class="group">
+    <div class="t">방향</div>
+    <div class="opts">
+      <div class="opt sel" data-mode="write">쓰기<small>음·뜻 → 한자 손글씨</small></div>
+      <div class="opt" data-mode="read">읽기<small>한자 → 한글 음</small></div>
     </div>
   </div>
 
@@ -191,7 +206,7 @@
     </div>
   </div>
 
-  <div class="group">
+  <div class="group" id="rangeGroup">
     <div class="t">범위 (세트 선택)</div>
     <div class="chips" id="setChips"></div>
   </div>
@@ -203,8 +218,7 @@
   </div>
 
   <div class="btnrow">
-    <button class="resumeBtn" id="resumeWrite" style="display:none"></button>
-    <button class="resumeBtn" id="resumeRead" style="display:none"></button>
+    <div id="resumeList"></div>
     <button id="startBtn">새로 시작하기</button>
   </div>
 </div>
@@ -320,8 +334,13 @@ function openUsage(card){
 function closeUsage(){ document.getElementById('usageModal').style.display = 'none'; }
 
 /* ===================== 옵션 선택 ===================== */
-const cfg = { mode:"write", order:"seq", sets:new Set([1,2,3,4,5,6]) };
+const cfg = { mode:"write", unit:"char", order:"seq", sets:new Set([1,2,3,4,5,6]) };
 
+document.querySelectorAll('.opt[data-unit]').forEach(el=>el.onclick=()=>{
+  document.querySelectorAll('.opt[data-unit]').forEach(x=>x.classList.remove('sel'));
+  el.classList.add('sel'); cfg.unit = el.dataset.unit;
+  document.getElementById('rangeGroup').style.display = cfg.unit === 'char' ? 'block' : 'none';
+});
 document.querySelectorAll('.opt[data-mode]').forEach(el=>el.onclick=()=>{
   document.querySelectorAll('.opt[data-mode]').forEach(x=>x.classList.remove('sel'));
   el.classList.add('sel'); cfg.mode = el.dataset.mode;
@@ -353,22 +372,30 @@ function beginSession(st){
   renderCard();
 }
 document.getElementById('startBtn').onclick = ()=>{
-  if (cfg.sets.size === 0){ alert('세트를 하나 이상 선택하세요.'); return; }
-  let pool = DATA.filter(d=>cfg.sets.has(d.s)).slice();
+  let pool;
+  if (cfg.unit === 'idiom'){
+    pool = IDIOMS.map(i=>({ h:i.w, e:i.r, hun:i.m, idiom:true }));
+  } else {
+    if (cfg.sets.size === 0){ alert('세트를 하나 이상 선택하세요.'); return; }
+    pool = DATA.filter(d=>cfg.sets.has(d.s)).slice();
+  }
   if (cfg.order === 'rand') shuffle(pool);
   beginSession({ queue: pool, idx: 0, unknown: [], round: 1, total: pool.length,
     startAt: Date.now(), firstKnown: 0,
-    cfg: { mode: cfg.mode, order: cfg.order, sets: [...cfg.sets] } });
+    cfg: { mode: cfg.mode, unit: cfg.unit, order: cfg.order, sets: [...cfg.sets] } });
   saveProgress();
 };
-function resumeMode(mode){
-  const p = loadProgress(mode);
+const RESUME_COMBOS = [
+  ['char','write','한자 쓰기'], ['char','read','한글 읽기'],
+  ['idiom','write','성어 쓰기'], ['idiom','read','성어 읽기']
+];
+function resumeProg(unit, mode){
+  const p = loadProgress(unit, mode);
   if (!p || !p.state){ renderStart(); return; }
-  cfg.mode = p.state.cfg.mode; cfg.order = p.state.cfg.order; cfg.sets = new Set(p.state.cfg.sets);
+  cfg.mode = p.state.cfg.mode; cfg.unit = p.state.cfg.unit || 'char';
+  cfg.order = p.state.cfg.order; cfg.sets = new Set(p.state.cfg.sets || [1,2,3,4,5,6]);
   beginSession(p.state);
 }
-document.getElementById('resumeWrite').onclick = ()=> resumeMode('write');
-document.getElementById('resumeRead').onclick = ()=> resumeMode('read');
 
 /* ===================== 카드 렌더 ===================== */
 const study = document.getElementById('study');
@@ -418,7 +445,12 @@ function renderCard(){
   study.innerHTML = '';
   const el = document.createElement('div');
   const isWrite = cfg.mode === 'write';
+  const isIdiom = !!card.idiom;
   el.className = 'card ' + (isWrite ? 'mode-write' : 'mode-read');
+
+  const promptLabel = isWrite
+    ? (isIdiom ? '다음 음(읽기)을 한자 구절로 쓰세요' : '다음 뜻·음의 한자를 쓰세요')
+    : (isIdiom ? '다음 한자 구절을 읽어 보세요' : '다음 한자의 음과 뜻을 떠올려 보세요');
 
   el.innerHTML = `
     <div class="topbar">
@@ -426,16 +458,15 @@ function renderCard(){
       <span class="progress"><b>${state.idx+1}</b> / ${state.queue.length} · 모름 ${state.unknown.length}</span>
     </div>
     <div class="prompt-wrap">
-      <div class="prompt-label">${isWrite ? '다음 뜻·음의 한자를 쓰세요' : '다음 한자의 음과 뜻을 떠올려 보세요'}</div>
-      ${isWrite ? `<div class="prompt hun">${card.hun}</div>` : ``}
+      <div class="prompt-label">${promptLabel}</div>
+      ${isWrite ? `<div class="prompt ${isIdiom?'phrase':'hun'}">${isIdiom?card.e:card.hun}</div>${isIdiom?`<div class="prompt-sub">뜻: ${card.hun}</div>`:''}` : ``}
     </div>
     <div class="work" id="work"></div>
     <div class="helpRow">
       ${isWrite
-        ? `<button class="help" id="peekBtn">한자 보기</button>`
+        ? `<button class="help" id="peekBtn">${isIdiom?'정답 보기':'한자 보기'}</button>`
         : `<button class="help" id="helpBtn">한글 확인</button>`}
-      <button class="help" id="strokeBtn">획순 보기</button>
-      <button class="help" id="usageBtn">쓰임새</button>
+      ${isIdiom ? `` : `<button class="help" id="strokeBtn">획순 보기</button><button class="help" id="usageBtn">쓰임새</button>`}
     </div>
     <div class="actions">
       <button class="know">✓ 알아요</button>
@@ -452,42 +483,39 @@ function renderCard(){
     work.innerHTML = `
       <div class="padwrap">
         <canvas id="pad"></canvas>
-        <div class="answerOverlay serif" id="ansOv">${card.h}</div>
-        ${HZ_HTML}
+        <div class="answerOverlay serif${isIdiom?' phrase':''}" id="ansOv">${card.h}</div>
+        ${isIdiom ? '' : HZ_HTML}
         <button class="clearBtn" id="clearBtn">↺ 지우기</button>
       </div>`;
     const padEl = el.querySelector('#pad');
     const ansOv = el.querySelector('#ansOv');
     requestAnimationFrame(()=>{
       setupCanvas(padEl);   // 레이아웃 확정 후 캔버스 크기 계산
-      const pw = padEl.getBoundingClientRect();   // 「한자」 옅은 글자를 획순과 동일 크기로
-      ansOv.style.fontSize = Math.max(120, Math.min(pw.width, pw.height) - 16) + 'px';
+      if (!isIdiom){ const pw = padEl.getBoundingClientRect(); ansOv.style.fontSize = Math.max(120, Math.min(pw.width, pw.height) - 16) + 'px'; }
     });
     el.querySelector('#clearBtn').onclick = ()=> clearCanvas();
-    // 「한자 보기」 — 옅은 글자 오버레이(따라쓰기 가이드)
+    // 「한자/정답 보기」 — 옅은 글자 오버레이(따라쓰기 가이드)
     const peekBtn = el.querySelector('#peekBtn');
     peekBtn.onclick = ()=>{
       const on = peekBtn.classList.toggle('on');
       ansOv.classList.toggle('show', on);
     };
-    wireStroke(el, card);
-    el.querySelector('#usageBtn').onclick = ()=> openUsage(card);
+    if (!isIdiom){ wireStroke(el, card); const ub = el.querySelector('#usageBtn'); if (ub) ub.onclick = ()=> openUsage(card); }
   } else {
     work.innerHTML = `
       <div class="readArea">
-        <div class="bigHan serif">${card.h}</div>
-        <div class="reveal" id="reveal"></div>
-        ${HZ_HTML}
+        <div class="bigHan serif${isIdiom?' phrase':''}">${card.h}</div>
+        <div class="reveal${isIdiom?' phrase':''}" id="reveal"></div>
+        ${isIdiom ? '' : HZ_HTML}
       </div>`;
-    // 「한글 확인」 — 음·뜻 표시
+    // 「한글 확인」 — 음(읽기) + 뜻 표시
     const reveal = el.querySelector('#reveal');
     const helpBtn = el.querySelector('#helpBtn');
     helpBtn.onclick = ()=>{
       const on = helpBtn.classList.toggle('on');
-      reveal.innerHTML = on ? `<span class="big">${card.e}</span><span class="hun">${card.hun}</span>` : '';
+      reveal.innerHTML = on ? `<span class="big">${card.e}</span><span class="hun">${isIdiom?'뜻: ':''}${card.hun}</span>` : '';
     };
-    wireStroke(el, card);
-    el.querySelector('#usageBtn').onclick = ()=> openUsage(card);
+    if (!isIdiom){ wireStroke(el, card); const ub = el.querySelector('#usageBtn'); if (ub) ub.onclick = ()=> openUsage(card); }
   }
 
   el.querySelector('.know').onclick = ()=> flyOut(el, true);
@@ -552,13 +580,13 @@ function showDone(){
   const durationSec = Math.max(1, Math.round((Date.now() - state.startAt)/1000));
   const rec = {
     atStr: fmtDate(new Date()),
-    modeLabel: state.cfg.mode === 'write' ? '한자 쓰기' : '한글 읽기',
+    modeLabel: `${state.cfg.unit === 'idiom' ? '성어' : '글자'} ${state.cfg.mode === 'write' ? '쓰기' : '읽기'}`,
     total: state.total, rounds: state.round,
     firstRate: Math.round(state.firstKnown / state.total * 100),
     durationSec
   };
   addHistory(rec);
-  clearProgress(state.cfg.mode);
+  clearProgress(state.cfg.unit, state.cfg.mode);
   study.style.display='none';
   const done = document.getElementById('done');
   done.style.display='flex';
@@ -576,14 +604,13 @@ document.getElementById('homeBtn').onclick = ()=>{
 
 /* ===================== 로컬 스토리지 ===================== */
 const LS_HIST = 'hanja_history_v1';
-const LS_PROG = { write: 'hanja_progress_write_v1', read: 'hanja_progress_read_v1' };
-function progKey(mode){ return mode === 'write' ? LS_PROG.write : LS_PROG.read; }
+function progKey(unit, mode){ return `hanja_prog_${unit}_${mode}_v1`; }
 function loadHistory(){ try { return JSON.parse(localStorage.getItem(LS_HIST)) || []; } catch(e){ return []; } }
 function saveHistory(h){ try { localStorage.setItem(LS_HIST, JSON.stringify(h.slice(0,30))); } catch(e){} }
 function addHistory(rec){ const h = loadHistory(); h.unshift(rec); saveHistory(h); }
-function loadProgress(mode){ try { return JSON.parse(localStorage.getItem(progKey(mode))); } catch(e){ return null; } }
-function saveProgress(){ try { localStorage.setItem(progKey(state.cfg.mode), JSON.stringify({ state, savedAt: Date.now() })); } catch(e){} }
-function clearProgress(mode){ try { localStorage.removeItem(progKey(mode)); } catch(e){} }
+function loadProgress(unit, mode){ try { return JSON.parse(localStorage.getItem(progKey(unit, mode))); } catch(e){ return null; } }
+function saveProgress(){ try { localStorage.setItem(progKey(state.cfg.unit, state.cfg.mode), JSON.stringify({ state, savedAt: Date.now() })); } catch(e){} }
+function clearProgress(unit, mode){ try { localStorage.removeItem(progKey(unit, mode)); } catch(e){} }
 function fmtDate(d){ const p = n => String(n).padStart(2,'0');
   return `${d.getFullYear()}.${p(d.getMonth()+1)}.${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`; }
 function fmtDur(s){ const m = Math.floor(s/60), ss = s%60; return m ? `${m}분 ${ss}초` : `${ss}초`; }
@@ -591,15 +618,19 @@ function fmtShort(d){ const p = n => String(n).padStart(2,'0');
   return `${d.getMonth()+1}월 ${d.getDate()}일 ${p(d.getHours())}:${p(d.getMinutes())}`; }
 
 function renderStart(){
-  [['write','resumeWrite','한자 쓰기'],['read','resumeRead','한글 읽기']].forEach(([mode,id,lbl])=>{
-    const p = loadProgress(mode);
-    const rb = document.getElementById(id);
+  const rlist = document.getElementById('resumeList');
+  rlist.innerHTML = '';
+  RESUME_COMBOS.forEach(([unit,mode,lbl])=>{
+    const p = loadProgress(unit, mode);
     if (p && p.state && p.state.queue && p.state.idx < p.state.queue.length){
       const st = p.state;
       const when = p.savedAt ? `⏸ ${fmtShort(new Date(p.savedAt))} 중단` : '';
-      rb.style.display = 'block';
-      rb.innerHTML = `⏵ ${lbl} 이어서 학습<small>라운드 ${st.round} · ${st.idx}/${st.queue.length} 진행 중<br>${when}</small>`;
-    } else rb.style.display = 'none';
+      const btn = document.createElement('button');
+      btn.className = 'resumeBtn ' + (mode === 'write' ? 'mode-write' : 'mode-read');
+      btn.innerHTML = `⏵ ${lbl} 이어서<small>라운드 ${st.round} · ${st.idx}/${st.queue.length} 진행 중<br>${when}</small>`;
+      btn.onclick = ()=> resumeProg(unit, mode);
+      rlist.appendChild(btn);
+    }
   });
 
   const hist = loadHistory();
