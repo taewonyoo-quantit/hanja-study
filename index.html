@@ -127,7 +127,7 @@
   /* 모드2: 큰 한자 + 음·뜻 표시 */
   .readArea { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; }
   .bigHan { font-size: clamp(120px, 32vh, 280px); line-height: 1; color: #111; }
-  .bigHan.phrase { font-size: clamp(30px, 8.5vw, 60px); line-height: 1.35; word-break: break-all; padding: 0 14px; text-align: center; }
+  .bigHan.phrase { font-size: clamp(42px, 14vw, 80px); line-height: 1.3; white-space: pre-line; padding: 0 10px; text-align: center; }
   .reveal { min-height: 34px; text-align: center; display: flex; align-items: baseline; gap: 8px; justify-content: center; flex-wrap: wrap; padding: 0 12px; }
   .reveal .big { font-size: 34px; font-weight: 800; color: var(--accent,#2563eb); }
   .reveal .hun { font-size: 18px; color: #777; font-weight: 500; }
@@ -139,7 +139,7 @@
   .modalCard { position: relative; background: #fff; border-radius: 16px; width: 100%; max-width: 440px; max-height: 82vh; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 12px 40px rgba(0,0,0,.3); text-align: center; }
   #modalClose { position: absolute; top: 10px; right: 10px; border: none; background: #f1f5f9; color: #475569; border-radius: 9px; width: 34px; height: 34px; font-size: 16px; cursor: pointer; z-index: 2; }
   .mh-han { font-family: "AppleMyungjo","Batang",serif; font-weight: 700; line-height: 1.15; padding: 22px 44px 0; font-size: clamp(48px, 14vw, 96px); word-break: break-all; }
-  .mh-han.phrase { font-size: clamp(28px, 7vw, 52px); line-height: 1.3; }
+  .mh-han.phrase { font-size: clamp(40px, 13vw, 76px); line-height: 1.35; white-space: pre-line; }
   .mh-eum { font-size: 18px; color: var(--accent,#2563eb); font-weight: 800; margin-top: 8px; }
   #modalBody { padding: 12px 18px 18px; overflow-y: auto; -webkit-overflow-scrolling: touch; text-align: left; }
   .ansMean { font-size: 15px; color: #444; line-height: 1.6; text-align: center; }
@@ -328,12 +328,13 @@ function getUsage(card){
   }
   return '<div class="uxempty">아직 등록된 쓰임새가 없어요.</div>';
 }
+function phrase4(s){ return s.replace(/(.{4})/g, '$1\n').replace(/\n$/, ''); }  // 4글자마다 줄바꿈
 function setModal(hanText, eumText, bodyHTML, isPhrase){
   const mc = document.getElementById('modalCard');
   mc.className = 'modalCard ' + (cfg.mode === 'write' ? 'mode-write' : 'mode-read');
   const mh = document.getElementById('modalHan');
   mh.className = 'mh-han serif' + (isPhrase ? ' phrase' : '');
-  mh.textContent = hanText;
+  mh.textContent = isPhrase ? phrase4(hanText) : hanText;
   document.getElementById('modalEum').textContent = eumText;
   document.getElementById('modalBody').innerHTML = bodyHTML;
   document.getElementById('usageModal').style.display = 'flex';
@@ -519,7 +520,7 @@ function renderCard(){
   } else {
     work.innerHTML = `
       <div class="readArea">
-        <div class="bigHan serif${isIdiom?' phrase':''}">${card.h}</div>
+        <div class="bigHan serif${isIdiom?' phrase':''}">${isIdiom ? phrase4(card.h) : card.h}</div>
         <div class="reveal${isIdiom?' phrase':''}" id="reveal"></div>
         ${isIdiom ? '' : HZ_HTML}
       </div>`;
