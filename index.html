@@ -136,12 +136,13 @@
   .reveal.phrase .hun { font-size: 15px; }
   /* 쓰임새 모달 */
   .modal { position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,.45); padding: 20px; }
-  .modalCard { background: #fff; border-radius: 16px; width: 100%; max-width: 440px; max-height: 78vh; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 12px 40px rgba(0,0,0,.3); }
-  .modalHead { display: flex; align-items: center; gap: 10px; padding: 14px 16px; border-bottom: 1px solid #eee; }
-  .modalHead .mh-han { font-family: "AppleMyungjo","Batang",serif; font-size: 28px; font-weight: 700; }
-  .modalHead .mh-eum { font-size: 15px; color: var(--accent,#2563eb); font-weight: 700; }
-  #modalClose { margin-left: auto; border: none; background: #f1f5f9; color: #475569; border-radius: 9px; width: 34px; height: 34px; font-size: 16px; cursor: pointer; }
-  #modalBody { padding: 14px 16px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  .modalCard { position: relative; background: #fff; border-radius: 16px; width: 100%; max-width: 440px; max-height: 82vh; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 12px 40px rgba(0,0,0,.3); text-align: center; }
+  #modalClose { position: absolute; top: 10px; right: 10px; border: none; background: #f1f5f9; color: #475569; border-radius: 9px; width: 34px; height: 34px; font-size: 16px; cursor: pointer; z-index: 2; }
+  .mh-han { font-family: "AppleMyungjo","Batang",serif; font-weight: 700; line-height: 1.15; padding: 22px 44px 0; font-size: clamp(48px, 14vw, 96px); word-break: break-all; }
+  .mh-han.phrase { font-size: clamp(28px, 7vw, 52px); line-height: 1.3; }
+  .mh-eum { font-size: 18px; color: var(--accent,#2563eb); font-weight: 800; margin-top: 8px; }
+  #modalBody { padding: 12px 18px 18px; overflow-y: auto; -webkit-overflow-scrolling: touch; text-align: left; }
+  .ansMean { font-size: 15px; color: #444; line-height: 1.6; text-align: center; }
   .ux { background: var(--accent-bg,#f1f5f9); border-radius: 10px; padding: 10px 12px; margin-bottom: 8px; font-size: 14px; line-height: 1.55; }
   .ux:last-child { margin-bottom: 0; }
   .ux b { font-family: "AppleMyungjo","Batang",serif; color: var(--accent,#2563eb); font-size: 17px; }
@@ -157,10 +158,15 @@
   .hintbox .hun { color:#777; font-size: 15px; font-weight: 500; }
 
   .helpRow { display: flex; justify-content: center; gap: 10px; margin-top: 6px; }
-  .actions { display: flex; gap: 12px; padding-top: 6px; }
+  .navRow { display: flex; gap: 12px; padding-top: 8px; }
+  .nav { flex: 1; border: 1px solid #e2e2e6; background: #fff; color: #555; border-radius: 12px; padding: 12px; font-size: 15px; font-weight: 700; cursor: pointer; }
+  .nav:disabled { opacity: .35; }
+  .actions { display: flex; gap: 12px; padding-top: 8px; }
   .actions button { flex: 1; border: none; border-radius: 14px; padding: 16px; font-size: 17px; font-weight: 800; cursor: pointer; }
   .know { background: #dcfce7; color: #15803d; }
   .dontknow { background: #fee2e2; color: #b91c1c; }
+  .know.active { outline: 3px solid #15803d; outline-offset: -3px; }
+  .dontknow.active { outline: 3px solid #b91c1c; outline-offset: -3px; }
   .swipehint { text-align: center; font-size: 12px; color: #bbb; margin-top: 8px; }
   .pauseBtn { align-self: center; margin-top: 10px; border: 1px solid #e5e7eb; background: #fff; color: #94a3b8;
     border-radius: 999px; padding: 8px 18px; font-size: 13px; cursor: pointer; }
@@ -238,10 +244,9 @@
 <!-- 쓰임새 모달 -->
 <div id="usageModal" class="modal" style="display:none">
   <div class="modalCard" id="modalCard">
-    <div class="modalHead">
-      <span class="mh-han" id="modalHan"></span><span class="mh-eum" id="modalEum"></span>
-      <button id="modalClose">✕</button>
-    </div>
+    <button id="modalClose">✕</button>
+    <div class="mh-han serif" id="modalHan"></div>
+    <div class="mh-eum" id="modalEum"></div>
     <div id="modalBody"></div>
   </div>
 </div>
@@ -323,14 +328,18 @@ function getUsage(card){
   }
   return '<div class="uxempty">아직 등록된 쓰임새가 없어요.</div>';
 }
-function openUsage(card){
+function setModal(hanText, eumText, bodyHTML, isPhrase){
   const mc = document.getElementById('modalCard');
   mc.className = 'modalCard ' + (cfg.mode === 'write' ? 'mode-write' : 'mode-read');
-  document.getElementById('modalHan').textContent = card.h;
-  document.getElementById('modalEum').textContent = card.hun;
-  document.getElementById('modalBody').innerHTML = getUsage(card);
+  const mh = document.getElementById('modalHan');
+  mh.className = 'mh-han serif' + (isPhrase ? ' phrase' : '');
+  mh.textContent = hanText;
+  document.getElementById('modalEum').textContent = eumText;
+  document.getElementById('modalBody').innerHTML = bodyHTML;
   document.getElementById('usageModal').style.display = 'flex';
 }
+function openUsage(card){ setModal(card.h, card.hun, getUsage(card), false); }
+function openAnswer(card){ setModal(card.h, card.e, `<div class="ansMean">뜻 · ${card.hun}</div>`, true); }
 function closeUsage(){ document.getElementById('usageModal').style.display = 'none'; }
 
 /* ===================== 옵션 선택 ===================== */
@@ -380,7 +389,7 @@ document.getElementById('startBtn').onclick = ()=>{
     pool = DATA.filter(d=>cfg.sets.has(d.s)).slice();
   }
   if (cfg.order === 'rand') shuffle(pool);
-  beginSession({ queue: pool, idx: 0, unknown: [], round: 1, total: pool.length,
+  beginSession({ queue: pool, idx: 0, verdicts: [], round: 1, total: pool.length,
     startAt: Date.now(), firstKnown: 0,
     cfg: { mode: cfg.mode, unit: cfg.unit, order: cfg.order, sets: [...cfg.sets] } });
   saveProgress();
@@ -446,6 +455,7 @@ function renderCard(){
   const el = document.createElement('div');
   const isWrite = cfg.mode === 'write';
   const isIdiom = !!card.idiom;
+  const cur = (state.verdicts || [])[state.idx];
   el.className = 'card ' + (isWrite ? 'mode-write' : 'mode-read');
 
   const promptLabel = isWrite
@@ -455,7 +465,7 @@ function renderCard(){
   el.innerHTML = `
     <div class="topbar">
       <span class="roundtag">라운드 ${state.round}</span>
-      <span class="progress"><b>${state.idx+1}</b> / ${state.queue.length} · 모름 ${state.unknown.length}</span>
+      <span class="progress"><b>${state.idx+1}</b> / ${state.queue.length} · 판정 ${judgedCount()}/${state.queue.length}</span>
     </div>
     <div class="prompt-wrap">
       <div class="prompt-label">${promptLabel}</div>
@@ -468,11 +478,14 @@ function renderCard(){
         : `<button class="help" id="helpBtn">한글 확인</button>`}
       ${isIdiom ? `` : `<button class="help" id="strokeBtn">획순 보기</button><button class="help" id="usageBtn">쓰임새</button>`}
     </div>
-    <div class="actions">
-      <button class="know">✓ 알아요</button>
-      <button class="dontknow">✕ 몰라요</button>
+    <div class="navRow">
+      <button class="nav" id="prevBtn">◀ 이전</button>
+      <button class="nav" id="nextBtn">다음 ▶</button>
     </div>
-    <div class="swipehint">알면 「알아요」, 모르면 「몰라요」를 누르세요</div>
+    <div class="actions">
+      <button class="know${cur===true?' active':''}">✓ 알아요</button>
+      <button class="dontknow${cur===false?' active':''}">✕ 몰라요</button>
+    </div>
     <button class="pauseBtn" id="pauseBtn">⏸ 잠깐 중단하기</button>
   `;
   study.appendChild(el);
@@ -494,13 +507,15 @@ function renderCard(){
       if (!isIdiom){ const pw = padEl.getBoundingClientRect(); ansOv.style.fontSize = Math.max(120, Math.min(pw.width, pw.height) - 16) + 'px'; }
     });
     el.querySelector('#clearBtn').onclick = ()=> clearCanvas();
-    // 「한자/정답 보기」 — 옅은 글자 오버레이(따라쓰기 가이드)
+    // 「한자 보기(글자)」 옅은 오버레이 / 「정답 보기(성어)」 모달
     const peekBtn = el.querySelector('#peekBtn');
-    peekBtn.onclick = ()=>{
-      const on = peekBtn.classList.toggle('on');
-      ansOv.classList.toggle('show', on);
-    };
-    if (!isIdiom){ wireStroke(el, card); const ub = el.querySelector('#usageBtn'); if (ub) ub.onclick = ()=> openUsage(card); }
+    if (isIdiom){
+      peekBtn.onclick = ()=> openAnswer(card);
+    } else {
+      peekBtn.onclick = ()=>{ const on = peekBtn.classList.toggle('on'); ansOv.classList.toggle('show', on); };
+      wireStroke(el, card);
+      const ub = el.querySelector('#usageBtn'); if (ub) ub.onclick = ()=> openUsage(card);
+    }
   } else {
     work.innerHTML = `
       <div class="readArea">
@@ -520,6 +535,11 @@ function renderCard(){
 
   el.querySelector('.know').onclick = ()=> flyOut(el, true);
   el.querySelector('.dontknow').onclick = ()=> flyOut(el, false);
+  const prevBtn = el.querySelector('#prevBtn'), nextBtn = el.querySelector('#nextBtn');
+  prevBtn.onclick = ()=> navCard(-1);
+  nextBtn.onclick = ()=> navCard(1);
+  prevBtn.disabled = state.idx === 0;
+  nextBtn.disabled = state.idx === state.queue.length - 1;
   el.querySelector('#pauseBtn').onclick = ()=>{
     saveProgress();
     study.style.display='none';
@@ -559,20 +579,29 @@ function flyOut(card, known){
   card.style.opacity = '0';
   setTimeout(()=>decide(known), 220);
 }
+function judgedCount(){ const v = state.verdicts || []; let n = 0; for (let i=0;i<state.queue.length;i++) if (v[i] !== undefined) n++; return n; }
 function decide(known){
-  const card = state.queue[state.idx];
-  if (state.round === 1 && known) state.firstKnown++;
-  if (!known) state.unknown.push(card);
-  state.idx++;
+  state.verdicts = state.verdicts || [];
+  state.verdicts[state.idx] = known;
   saveProgress();
-  if (state.idx >= state.queue.length) finishRound();
-  else renderCard();
+  if (judgedCount() >= state.queue.length){ finishRound(); return; }
+  if (state.idx < state.queue.length - 1) state.idx++;
+  else { const ni = state.queue.findIndex((c,i)=> state.verdicts[i] === undefined); if (ni >= 0) state.idx = ni; }
+  renderCard();
+}
+function navCard(dir){
+  const ni = state.idx + dir;
+  if (ni < 0 || ni >= state.queue.length) return;
+  state.idx = ni; saveProgress(); renderCard();
 }
 function finishRound(){
-  if (state.unknown.length === 0){ showDone(); return; }
-  let next = state.unknown.slice();
+  state.verdicts = state.verdicts || [];
+  if (state.round === 1) state.firstKnown = state.queue.filter((c,i)=> state.verdicts[i] === true).length;
+  const unknown = state.queue.filter((c,i)=> state.verdicts[i] === false);
+  if (unknown.length === 0){ showDone(); return; }
+  let next = unknown;
   if (state.cfg.order === 'rand') shuffle(next);
-  state.queue = next; state.unknown = []; state.idx = 0; state.round++;
+  state.queue = next; state.verdicts = []; state.idx = 0; state.round++;
   saveProgress();
   renderCard();
 }
